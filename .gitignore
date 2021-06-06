@@ -4,6 +4,8 @@ coverage/
 doc/
 tmp/
 lib/
+dist/
+.idea/
 *.log
 *.tgz
 *.sh

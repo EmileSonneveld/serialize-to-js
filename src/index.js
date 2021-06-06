@@ -159,3 +159,4 @@ function serialize (source, opts = {}) {
 }
 
 module.exports = serialize
+window.serialize = serialize
