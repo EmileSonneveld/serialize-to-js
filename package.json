@@ -25,7 +25,7 @@
   },
   "scripts": {
     "all": "npm run clean && npm run lint && npm run build &&  npm test",
-    "build": "babel -d lib src",
+    "build": "babel -d lib src && npx webpack",
     "clean": "rimraf lib doc coverage .nyc_output *.tgz",
     "coverage": "nyc -r text -r html npm test",
     "lint": "eslint src test",
@@ -61,6 +61,7 @@
     "eslint-plugin-node": "^11.0.0",
     "eslint-plugin-promise": "^4.2.1",
     "eslint-plugin-standard": "^4.0.1",
+    "markedpp": "1.0.3",
     "mocha": "^7.0.1",
     "nyc": "^15.0.0",
     "rimraf": "^3.0.0",
@@ -70,7 +71,9 @@
   "engines": {
     "node": ">=4.0.0"
   },
-  "maintainers": "commenthol <commenthol@gmail.com>",
+  "maintainers": [
+    "commenthol <commenthol@gmail.com>"
+  ],
   "mocha": {
     "check-leaks": true
   }

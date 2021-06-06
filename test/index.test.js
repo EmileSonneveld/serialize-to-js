@@ -271,6 +271,7 @@ describe('serialize-to-js', function () {
       const res = serialize(xss)
         .replace(/\n\s+/mg, '\n ')
         .replace(/function xss\(\)/, 'function xss ()') // node v8 has no space before brackets
+        .replace(/\r\n/g, "\n") // Windows has carriage returns
       assert.strictEqual(res,
         'function xss () {\n' +
         ' const str = \'\\u003C\\u002Fscript>\\u003Cscript>alert(\\\'xss\\\')//\'\n' +

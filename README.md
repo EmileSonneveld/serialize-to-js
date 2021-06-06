@@ -60,7 +60,7 @@ const obj = {
   date: new Date(),
   buffer: new Buffer('data'),
   set: new Set([1, 2, 3]),
-  map: new Map([['a': 1],['b': 2]])
+  map: new Map([['a', 1],['b', 2]])
 }
 console.log(serialize(obj))
 //> '{str: "\u003Cscript\u003Evar a = 0 \u003E 1\u003C\u002Fscript\u003E",
