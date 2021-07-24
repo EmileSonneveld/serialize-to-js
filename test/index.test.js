@@ -11,7 +11,7 @@ if (typeof assert.deepStrictEqual === 'undefined') {
 
 const isBrowser = (typeof window !== 'undefined')
 
-function log (arg) {
+function log(arg) {
   console.log(JSON.stringify(arg))
 }
 
@@ -19,15 +19,43 @@ const isLessV12 = parseInt(process.versions.node.split('.')[0]) < 12
 
 describe.node = isBrowser ? describe.skip : describe
 
+function looseJsonParse(obj) {
+  return Function('"use strict";return (' + obj + ')')();
+}
+
 describe('serialize-to-js', function () {
-  function test (name, inp, exp, unsafe) {
+  function test(name, inp, exp, unsafe) {
     it(name, function () {
-      const res = serialize(inp, { unsafe })
-      if (typeof exp === 'object') {
-        assert.deepStrictEqual(res, exp)
+
+      console.log("------------ test -------------")
+      const str = serialize(inp, {})
+      console.log("str:")
+      console.log(str)
+      const res = looseJsonParse(str)
+
+      console.log("instance:")
+      console.log(inp)
+      console.log("res:")
+      console.log(res)
+      // assert.ok(deepCompare(inp, res))
+      console.log('typeof inp', typeof inp)
+      if (typeof inp === 'object') {
+        assert.deepStrictEqual(res, inp)
       } else {
-        assert.strictEqual(res, exp)
+        assert.strictEqual(res, inp)
       }
+
+      // const res = serialize(inp, { unsafe })//.replace(/\n/g, " ")
+      // console.log(res)
+      // console.log("---------")
+      // console.log(exp)
+      // console.log(eval(res))
+      // console.log(eval(`(()=>{return ${exp}})()`))
+      // if (typeof exp === 'object') {
+      //   assert.deepStrictEqual(res, inp)
+      // } else {
+      //   assert.strictEqual(res, exp)
+      // }
     })
   }
 
@@ -201,44 +229,51 @@ describe('serialize-to-js', function () {
       const res = serialize(o)
       const exp = '{a: {"3": "3", one: true, "thr-ee": undefined, "4 four": "four\\n\\u003Ctest\\u003E\\u003C\\u002Ftest\\u003E", "five\\"(5)": 5}, b: {"3": "3", one: true, "thr-ee": undefined, "4 four": "four\\n\\u003Ctest\\u003E\\u003C\\u002Ftest\\u003E", "five\\"(5)": 5}}'
       // console.log(JSON.stringify(res))
-      assert.strictEqual(res, exp)
+      assert.deepStrictEqual(looseJsonParse(res), looseJsonParse(exp))
     })
-    it('converting an object of objects using references', function () {
-      const r = {
-        one: true,
-        'thr-ee': undefined,
-        3: '3',
-        '4 four': {
-          four: 4
-        }
+
+    const r = {
+      one: true,
+      'thr-ee': undefined,
+      3: '3',
+      '4 four': {
+        four: 4
       }
-      const o = {
-        a: r,
-        b: r,
-        c: {
-          d: r,
-          0: r,
-          'spa ce': r
-        },
-        0: r['4 four'],
+    }
+    const o = {
+      a: r,
+      b: r,
+      c: {
+        d: r,
+        0: r,
         'spa ce': r
-      }
-      const opts = {
-        reference: true
-      }
-      const res = serialize(o, opts)
-      const exp = '{"0": {four: 4}, a: {"3": "3", one: true, "thr-ee": undefined}, c: {}}'
-      const refs = [
-        ['.a["4 four"]', '["0"]'],
-        ['.b', '.a'],
-        ['.c["0"]', '.a'],
-        ['.c.d', '.a'],
-        ['.c["spa ce"]', '.a'],
-        ['["spa ce"]', '.a']
-      ]
-      assert.strictEqual(res, exp)
-      assert.deepStrictEqual(opts.references, refs)
-    })
+      },
+      0: r['4 four'],
+      'spa ce': r
+    }
+    test('converting an object of objects using references', o)
+
+    // it('converting an object of objects using references', function () {
+    //
+    //   // const opts = {
+    //   //   reference: true
+    //   // }
+    //   const res = serialize(o)
+    //
+    //   test()
+    //   assert.deepStrictEqual(o, looseJsonParse(res))
+    //   // const exp = '{"0": {four: 4}, a: {"3": "3", one: true, "thr-ee": undefined}, c: {}}'
+    //   // const refs = [
+    //   //   ['.a["4 four"]', '["0"]'],
+    //   //   ['.b', '.a'],
+    //   //   ['.c["0"]', '.a'],
+    //   //   ['.c.d', '.a'],
+    //   //   ['.c["spa ce"]', '.a'],
+    //   //   ['["spa ce"]', '.a']
+    //   // ]
+    //   // assert.strictEqual(res, exp)
+    //   // assert.deepStrictEqual(opts.references, refs)
+    // })
     it('converting an object of objects with opts.unsafe', function () {
       const o1 = {
         one: true,
@@ -253,7 +288,8 @@ describe('serialize-to-js', function () {
       }
       const res = serialize(o, { unsafe: true })
       const exp = '{a: {"3": "3", one: true, "thr-ee": undefined, "4 four": "four\\n<test></test>", "five\\"(5)": 5}, b: {"3": "3", one: true, "thr-ee": undefined, "4 four": "four\\n<test></test>", "five\\"(5)": 5}}'
-      assert.strictEqual(res, exp)
+      // assert.strictEqual(res, exp)
+      assert.deepStrictEqual(looseJsonParse(res), looseJsonParse(exp))
     })
     it('correctly serializes regular expressions', function () {
       for (const re of [/\//, /[</script><script>alert('xss')//]/i, /abc/, /[< /script>]/]) {
@@ -294,89 +330,21 @@ describe('serialize-to-js', function () {
       const res = eval(serialize(set)) // eslint-disable-line no-eval
       assert.deepStrictEqual(Array.from(res), Array.from(set))
     })
-    it('shall unmarshal Map', function () {
-      const map = new Map([['a', 'a'], [1.2, 1.2], [true, true], [['b', 3], ['b', 3]], [{ c: 4 }, { c: 4 }]])
-      const res = eval(serialize(map)) // eslint-disable-line no-eval
-      assert.deepStrictEqual(Array.from(res), Array.from(map))
-    })
-  })
 
-  describe('circular', function () {
-    it('circular Object thows', function () {
-      const o = {
-        a: {
-          b: {}
-        }
-      }
-      o.a.b = o.a
-      assert.throws(function () {
-        serialize(o)
-      }, /can not convert circular structures/)
-    })
-    it('Object ignore circularity', function () {
-      const opts = { ignoreCircular: true }
-      const o = {}
-      o.self = o
-      const res = serialize(o, opts)
-      const exp = '{self: {/*[Circular]*/}}'
-      assert.strictEqual(res, exp)
-    })
-    it('Object ignore circularity #2', function () {
-      const o = {
-        a: {
-          b: {}
-        }
-      }
-      o.a.b = o.a
-      const res = serialize(o, { ignoreCircular: true })
-      const exp = '{a: {b: {/*[Circular]*/}}}'
-      assert.strictEqual(res, exp)
-    })
-    it('circular Array throws', function () {
-      const arr = []
-      arr[0] = arr
-      assert.throws(function () {
-        serialize(arr)
-      }, /can not convert circular structures/)
-    })
-    it('Array ignore circularity', function () {
-      const arr = []
-      arr[0] = arr
-      const res = serialize(arr, { ignoreCircular: true })
-      const exp = '[[/*[Circular]*/]]'
-      assert.strictEqual(res, exp)
-    })
-    it('circular Set throws', function () {
-      const set = new Set()
-      set.add(set)
-      set.add('foo')
-      assert.throws(function () {
-        serialize(set)
-      }, /can not convert circular structures/)
-    })
-    it('Set ignore circularity', function () {
-      const set = new Set()
-      set.add(set)
-      set.add('foo')
-      const res = serialize(set, { ignoreCircular: true })
-      const exp = 'new Set([undefined /*[Circular]*/, "foo"])'
-      assert.strictEqual(res, exp)
-    })
-    it('circular Map throws', function () {
-      const map = new Map()
-      map.set('self', map)
-      map.set('foo', 'bar')
-      assert.throws(function () {
-        serialize(map)
-      }, /can not convert circular structures/)
-    })
-    it('Map ignore circularity', function () {
-      const map = new Map()
-      map.set('self', map)
-      map.set('foo', 'bar')
-      const res = serialize(map, { ignoreCircular: true })
-      const exp = 'new Map([["self", undefined /*[Circular]*/], ["foo", "bar"]])'
-      assert.strictEqual(res, exp)
-    })
+    const map = new Map([
+      ['a', 'val'],
+      [1.2, "val"],
+      [true, "val"],
+      [['b', 3], "val"],
+      [{ c: 4 }, "val"]
+    ]);
+    test('shall unmarshal Map', map)
+
+    const mapKey = { key: "value" }
+    const map2 = new Map([
+      [mapKey, 'val'],
+      ["key2", mapKey],
+    ]);
+    test('shall unmarshal Map2', map2)
   })
 })

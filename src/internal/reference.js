@@ -23,6 +23,10 @@ function Ref (references, opts) {
   this._opts = opts || {}
 }
 
+Ref.isSafeKey = function (key){
+  return KEY.test(key)
+}
+
 /**
  * wrap an object key
  * @api private

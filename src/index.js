@@ -53,55 +53,60 @@ const Ref = require('./internal/reference')
  * @param {Boolean} opts.unsafe - do not escape chars `<>/`
  * @return {String} serialized representation of `source`
  */
-function serialize (source, opts = {}) {
+function serialize(source, opts = {}) {
   opts = opts || {}
 
-  const visited = new Set()
-  opts.references = []
-  const refs = new Ref(opts.references, opts)
 
-  function stringify (source, opts) {
+  const visitedRefs = new Map()
+  let breadcrumbs = ['root']
+  let codeBefore = ""
+  let objCounter = 0
+  let codeAfter = ""
+
+  function stringify(source, indent = 2) {
     const type = utils.toType(source)
 
-    if (visited.has(source)) {
-      if (opts.ignoreCircular) {
-        switch (type) {
-          case 'Array':
-            return '[/*[Circular]*/]'
-          case 'Object':
-            return '{/*[Circular]*/}'
-          default:
-            return 'undefined /*[Circular]*/'
-        }
-      } else {
-        throw new Error('can not convert circular structures.')
-      }
+    if (visitedRefs.has(source)) {
     }
 
+    // https://levelup.gitconnected.com/pass-by-value-vs-pass-by-reference-in-javascript-31e79afe850a
+    // TODO: consider almost everything 'object'. Search for Array, Error, Date, ... in proto
+    // TODO: learn about proto
+    // TODO: Allow to absorb external objects in visitedRefs. For example 'window' or 'modelManager'
+    // TODO: Check if capturing local scope is possible. Maybe isolate a function call, and generate minimal code t oreproduce the function call
     switch (type) {
       case 'Null':
         return 'null'
       case 'String':
         return utils.quote(source, opts) || '""'
       case 'Function': {
+        visitedRefs.set(source, breadcrumbs.join(''))
         const _tmp = source.toString()
         const tmp = opts.unsafe ? _tmp : utils.saferFunctionString(_tmp, opts)
         // append function to es6 function within obj
         return !/^\s*(function|\([^)]*?\)\s*=>)/m.test(tmp) ? 'function ' + tmp : tmp
       }
       case 'RegExp':
+        visitedRefs.set(source, breadcrumbs.join(''))
         return `new RegExp(${utils.quote(source.source, opts)}, "${source.flags}")`
       case 'Date':
+        visitedRefs.set(source, breadcrumbs.join(''))
         if (utils.isInvalidDate(source)) return 'new Date("Invalid Date")'
         return `new Date(${utils.quote(source.toJSON(), opts)})`
       case 'Error':
+        visitedRefs.set(source, breadcrumbs.join(''))
         return `new Error(${utils.quote(source.message, opts)})`
       case 'Buffer':
+        visitedRefs.set(source, breadcrumbs.join(''))
         return `Buffer.from("${source.toString('base64')}", "base64")`
       case 'Array': {
-        visited.add(source)
-        const tmp = source.map(item => stringify(item, opts))
-        visited.delete(source)
+        visitedRefs.set(source, breadcrumbs.join(''))
+        const tmp = []
+        for (const k in source) {
+          breadcrumbs.push(`[${k}]`)
+          tmp.push(stringify(source[k]))
+          breadcrumbs.pop()
+        }
         return `[${tmp.join(', ')}]`
       }
       case 'Int8Array':
@@ -113,6 +118,7 @@ function serialize (source, opts = {}) {
       case 'Uint32Array':
       case 'Float32Array':
       case 'Float64Array': {
+        visitedRefs.set(source, breadcrumbs.join(''))
         const tmp = []
         for (let i = 0; i < source.length; i++) {
           tmp.push(source[i])
@@ -120,43 +126,76 @@ function serialize (source, opts = {}) {
         return `new ${type}([${tmp.join(', ')}])`
       }
       case 'Set': {
-        visited.add(source)
-        const tmp = Array.from(source).map(item => stringify(item, opts))
-        visited.delete(source)
+        // TODO: Don't inline reference objects. Initialise them before everything, and refer to that.
+        // Adding cyclic references can be added after everything. Even empty initial objects would be fine
+
+        visitedRefs.set(source, breadcrumbs.join(''))
+        const tmp = Array.from(source).map(item => stringify(item))
         return `new ${type}([${tmp.join(', ')}])`
       }
       case 'Map': {
-        visited.add(source)
-        const tmp = Array.from(source).map(([key, value]) => `[${stringify(key, opts)}, ${stringify(value, opts)}]`)
-        visited.delete(source)
-        return `new ${type}([${tmp.join(', ')}])`
+        visitedRefs.set(source, breadcrumbs.join(''));
+        // const tmp = Array.from(source).map(([mapKey, mapValue]) => {
+        const tmp = []
+        for (const [mapKey, mapValue] of source.entries()) {
+          let safeKey = null;
+          if (utils.isObject(mapKey)) {
+            objCounter += 1;
+            safeKey = "obj" + objCounter;
+            const breadcrumbsOrig = breadcrumbs;
+            breadcrumbs = [safeKey];
+            codeBefore += `  const ${safeKey} = ${stringify(mapKey)};\n`;
+            breadcrumbs = breadcrumbsOrig;
+          } else {
+            safeKey = stringify(mapKey, opts);
+          }
+          if (visitedRefs.has(mapValue)) {
+            // tmp.push("  ".repeat(indent) + Ref.wrapkey(key, opts) + ': undefined') // To be filled in later
+            codeAfter += `  ${breadcrumbs.join('')}.set(${safeKey}, ${visitedRefs.get(mapValue)});\n`
+          } else {
+            breadcrumbs.push(`.get(${safeKey})`);
+            tmp.push("  ".repeat(indent) + `[${safeKey}, ${stringify(mapValue, indent + 1)}]`)
+            breadcrumbs.pop()
+          }
+        }
+        return `new ${type}([\n${tmp.join(',\n')}])`;
       }
       case 'Object': {
-        visited.add(source)
+        visitedRefs.set(source, breadcrumbs.join(''))
         const tmp = []
         for (const key in source) {
           if (Object.prototype.hasOwnProperty.call(source, key)) {
-            if (opts.reference && utils.isObject(source[key])) {
-              refs.push(key)
-              if (!refs.hasReference(source[key])) {
-                tmp.push(Ref.wrapkey(key, opts) + ': ' + stringify(source[key], opts))
-              }
-              refs.pop()
+            if(Ref.isSafeKey(key)){
+              breadcrumbs.push(`.${key}`)
             } else {
-              tmp.push(Ref.wrapkey(key, opts) + ': ' + stringify(source[key], opts))
+              breadcrumbs.push(`[${utils.quote(key, opts)}]`)
             }
+            if (visitedRefs.has(source[key])) {
+              // tmp.push("  ".repeat(indent) + Ref.wrapkey(key, opts) + ': undefined') // To be filled in later
+              codeAfter += `  ${breadcrumbs.join('')} = ${visitedRefs.get(source[key])};\n`
+            } else {
+              tmp.push("  ".repeat(indent) + Ref.wrapkey(key, opts) + ': ' + stringify(source[key], indent+1))
+            }
+            breadcrumbs.pop()
           }
         }
-        visited.delete(source)
-        return `{${tmp.join(', ')}}`
+        return `{\n${tmp.join(',\n')}\n${"  ".repeat(indent-1)}}`
       }
       default:
         return '' + source
     }
   }
 
-  return stringify(source, opts)
+  const codeMiddle = stringify(source, 2)
+  return `(function(){
+${codeBefore}
+  const root = ${codeMiddle};
+${codeAfter}
+  return root;
+})()`
 }
 
 module.exports = serialize
-window.serialize = serialize
+if (typeof window !== "undefined") {
+  window.serialize = serialize
+}
