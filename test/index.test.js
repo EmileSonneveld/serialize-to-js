@@ -24,11 +24,12 @@ function looseJsonParse(obj) {
 }
 
 describe('serialize-to-js', function () {
-  function test(name, inp, exp, unsafe) {
+  function test(name, inp, exp, unsafe, objectsToLinkTo) {
     it(name, function () {
 
       console.log("------------ test -------------")
-      const str = serialize(inp, {})
+      // console.log("objectsToLinkTo", objectsToLinkTo)
+      const str = serialize(inp, { objectsToLinkTo })
       console.log("str:")
       console.log(str)
       const res = looseJsonParse(str)
@@ -299,11 +300,12 @@ describe('serialize-to-js', function () {
       }
     })
     it('serializes function with unsafe chars', function () {
-      function xss () {
+      function xss() {
         const str = '</script><script>alert(\'xss\')//'
         const o = { '\\": 0}; alert(\'xss\')//': 0, str }
         return o
       }
+
       const res = serialize(xss)
         .replace(/\n\s+/mg, '\n ')
         .replace(/function xss\(\)/, 'function xss ()') // node v8 has no space before brackets
@@ -325,26 +327,100 @@ describe('serialize-to-js', function () {
       const res = eval(serialize(new Date('Invalid'))) // eslint-disable-line no-eval
       assert.strictEqual(res.toString(), new Date('Invalid').toString())
     })
-    it('shall unmarshal Set', function () {
-      const set = new Set(['a', 1.2, true, ['b', 3], { c: 4 }])
-      const res = eval(serialize(set)) // eslint-disable-line no-eval
-      assert.deepStrictEqual(Array.from(res), Array.from(set))
-    })
 
-    const map = new Map([
-      ['a', 'val'],
-      [1.2, "val"],
-      [true, "val"],
-      [['b', 3], "val"],
-      [{ c: 4 }, "val"]
-    ]);
-    test('shall unmarshal Map', map)
+    const set = new Set(['a', 1.2, true, ['b', 3], { c: 4 }])
+    test('shall unmarshal Set', set)
 
-    const mapKey = { key: "value" }
-    const map2 = new Map([
-      [mapKey, 'val'],
-      ["key2", mapKey],
-    ]);
-    test('shall unmarshal Map2', map2)
+    {
+      const map = new Map([
+        ['a', 'val'],
+        [1.2, "val"],
+        [true, "val"],
+        [['b', 3], "val"],
+        [{ c: 4 }, "val"]
+      ]);
+      test('shall unmarshal Map', map)
+    }
+
+    {
+      const mapKey = { key: "value" }
+      const map2 = new Map([
+        [mapKey, 'val'],
+        ["key2", mapKey],
+      ]);
+      test('shall unmarshal Map2', map2)
+    }
+
+    {
+      const fooBar = { foo: "bar" }
+
+      const m = new Map()
+      m.set('key1', fooBar)
+      m.set(NaN, fooBar)
+
+      const obj = {
+        ref1: fooBar,
+        ref2: fooBar,
+        ref3: fooBar,
+        m: m,
+      }
+      test('map and refs 1', obj)
+    }
+
+    {
+      const apple = { appleKey: "appleValue" }
+      const obj = {
+        mApple: apple,
+        set: new Set([1, 2, apple, 3, 4])
+      }
+      test('map and refs 2', obj)
+    }
+
+    {
+      const apple = { appleKey: "appleValue" }
+      // const orange = { orangeKey: "orangeValue" }
+      // const banana = { bananaKey: "bananaValue" }
+
+      const mApple = new Map([
+        ['apple', apple],
+        [apple, "value"]
+      ])
+
+      // const mOrange = new Map()
+      // mOrange.set('orange', orange)
+      // mOrange.set(orange, "value")
+
+      const obj = {
+        mApple: mApple,
+        // mOrange: mOrange,
+        set: new Set([mApple])
+      }
+      test('map and refs 3', obj)
+    }
+    {
+      const obj = {
+        nativeLog: console.log,
+      }
+      test('global ref console', obj, null, null, { console })
+    }
+    {
+      const apple = { appleKey: "appleValue" }
+      const orange = { orangeKey: "orangeValue" }
+
+      global.linkingToThis = {
+        appleKey: apple,
+        mapKey: new Map([
+          ['orangeKey', orange],
+        ]),
+      }
+      const obj = {
+        nativeLog: console.log,
+        rest: {
+          k1: global.linkingToThis.appleKey,
+          k2: global.linkingToThis.mapKey.get('key2_mapKey1'),
+        }
+      }
+      test('global ref global', obj, null, null, { globalThis, console })
+    }
   })
 })

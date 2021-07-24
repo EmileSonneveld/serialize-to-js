@@ -58,16 +58,147 @@ function serialize(source, opts = {}) {
 
 
   const visitedRefs = new Map()
-  let breadcrumbs = ['root']
+  const setOrig = visitedRefs.set
+  visitedRefs.set = (key, val) => {
+    if (visitedRefs.has(key)) {
+      throw Error(`this object was already visited! old:${visitedRefs.get(key)} new: ${breadcrumbs.join('')}`)
+    }
+    setOrig.call(visitedRefs, key, val)
+  }
+  let breadcrumbs = null
+
+  function absorb(source) {
+    const type = utils.toType(source)
+    switch (type) {
+      case 'Null':
+        return 'null'
+      case 'String':
+        return utils.quote(source, opts) || '""'
+      case 'Function':
+      case 'RegExp':
+      case 'Date':
+      case 'Error':
+      case 'Buffer':
+      case 'Int8Array':
+      case 'Uint8Array':
+      case 'Uint8ClampedArray':
+      case 'Int16Array':
+      case 'Uint16Array':
+      case 'Int32Array':
+      case 'Uint32Array':
+      case 'Float32Array':
+      case 'Float64Array': {
+        visitedRefs.set(source, breadcrumbs.join(''))
+        break
+      }
+      case 'Array': {
+        visitedRefs.set(source, breadcrumbs.join(''))
+        for (const k in source) {
+          breadcrumbs.push(`[${k}]`)
+          absorb(source[k])
+          breadcrumbs.pop()
+        }
+        break
+      }
+      case 'Set': {
+        visitedRefs.set(source, breadcrumbs.join(''))
+        // Array.from(source).forEach(item => {
+        //   let safeItem = null;
+        //   if (utils.isObject(item)) {
+        //     if (!visitedRefs.has(item)) {
+        //       objCounter += 1;
+        //       safeItem = "obj" + objCounter;
+        //       const breadcrumbsOrig = breadcrumbs;
+        //       breadcrumbs = [safeItem];
+        //       absorb(item)
+        //       breadcrumbs = breadcrumbsOrig;
+        //     }
+        //   } else {
+        //     absorb(item, indent + 1);
+        //   }
+        // })
+        break
+      }
+      case 'Map': {
+        visitedRefs.set(source, breadcrumbs.join(''));
+        for (const [mapKey, mapValue] of source.entries()) {
+          let safeKey = null;
+          if (visitedRefs.has(mapKey)) {
+            safeKey = visitedRefs.get(mapKey)
+          } else if (utils.isObject(mapKey)) {
+            // objCounter += 1;
+            // safeKey = "obj" + objCounter;
+            // const breadcrumbsOrig = breadcrumbs;
+            // breadcrumbs = [safeKey];
+            // codeBefore += `  const ${safeKey} = ${absorb(mapKey)};\n`;
+            // breadcrumbs = breadcrumbsOrig;
+          } else {
+            safeKey = absorb(mapKey);
+          }
+          if (visitedRefs.has(mapKey) || visitedRefs.has(mapValue)) {
+            // if (visitedRefs.has(mapValue)) {
+            //   codeAfter += `  ${breadcrumbs.join('')}.set(${safeKey}, ${visitedRefs.get(mapValue)});\n`
+            // } else {
+            //   codeAfter += `  ${breadcrumbs.join('')}.set(${safeKey}, ${absorb(mapValue)});\n`
+            // }
+          } else {
+            breadcrumbs.push(`.get(${safeKey})`);
+            absorb(mapValue)
+            breadcrumbs.pop()
+          }
+        }
+        break
+      }
+      case 'Window':
+      case 'global':
+      case 'Object': {
+        visitedRefs.set(source, breadcrumbs.join(''))
+        for (const key in source) {
+          if (Object.prototype.hasOwnProperty.call(source, key)) {
+            if (Ref.isSafeKey(key)) {
+              breadcrumbs.push(`.${key}`)
+            } else {
+              breadcrumbs.push(`[${utils.quote(key, opts)}]`)
+            }
+            if (visitedRefs.has(source[key])) {
+            } else {
+              absorb(source[key])
+            }
+            breadcrumbs.pop()
+          }
+        }
+        break
+      }
+      case 'Undefined':
+      case 'Boolean':
+      case 'Number':
+        return '' + source
+      default: {
+        console.warn('Unknown type: ' + type)
+        // throw Error('Unknown type: ' + type)
+        return '' + source
+      }
+    }
+  }
+
+  if (opts.objectsToLinkTo) {
+    for (const key in opts.objectsToLinkTo) {
+      if (Object.prototype.hasOwnProperty.call(opts.objectsToLinkTo, key)) {
+        breadcrumbs = [key]
+        absorb(opts.objectsToLinkTo[key])
+      }
+    }
+  }
+  // console.log('visitedRefs', visitedRefs)
+  breadcrumbs = ['root']
+
+
   let codeBefore = ""
   let objCounter = 0
   let codeAfter = ""
 
   function stringify(source, indent = 2) {
     const type = utils.toType(source)
-
-    if (visitedRefs.has(source)) {
-    }
 
     // https://levelup.gitconnected.com/pass-by-value-vs-pass-by-reference-in-javascript-31e79afe850a
     // TODO: consider almost everything 'object'. Search for Array, Error, Date, ... in proto
@@ -101,14 +232,38 @@ function serialize(source, opts = {}) {
         return `Buffer.from("${source.toString('base64')}", "base64")`
       case 'Array': {
         visitedRefs.set(source, breadcrumbs.join(''))
+        // TODO: fix this!
         const tmp = []
-        for (const k in source) {
-          breadcrumbs.push(`[${k}]`)
-          tmp.push(stringify(source[k]))
-          breadcrumbs.pop()
+        let counter = 0
+        for (const key in source) {
+          if (Object.prototype.hasOwnProperty.call(source, key)) {
+            if (visitedRefs.has(source[key])) {
+              // tmp.push("  ".repeat(indent) + Ref.wrapkey(key, opts) + ': undefined') // To be filled in later
+              codeAfter += `  ${breadcrumbs.join('')} = ${visitedRefs.get(source[key])};\n`
+            } else {
+              if (Ref.isSafeKey(key)) {
+                breadcrumbs.push(`.${key}`)
+              } else {
+                breadcrumbs.push(`[${utils.quote(key, opts)}]`)
+              }
+              tmp.push("  ".repeat(indent) + Ref.wrapkey(key, opts) + ': ' + stringify(source[key], indent + 1))
+              breadcrumbs.pop()
+            }
+          }
+          counter += 1
         }
-        return `[${tmp.join(', ')}]`
+        return `[${tmp.join(',\n')}]`
       }
+      // {
+      //     visitedRefs.set(source, breadcrumbs.join(''))
+      //     const tmp = []
+      //     for (const k in source) {
+      //       breadcrumbs.push(`[${k}]`)
+      //       tmp.push(stringify(source[k]))
+      //       breadcrumbs.pop()
+      //     }
+      //     return `[${tmp.join(', ')}]`
+      //   }
       case 'Int8Array':
       case 'Uint8Array':
       case 'Uint8ClampedArray':
@@ -126,20 +281,46 @@ function serialize(source, opts = {}) {
         return `new ${type}([${tmp.join(', ')}])`
       }
       case 'Set': {
-        // TODO: Don't inline reference objects. Initialise them before everything, and refer to that.
         // Adding cyclic references can be added after everything. Even empty initial objects would be fine
 
         visitedRefs.set(source, breadcrumbs.join(''))
-        const tmp = Array.from(source).map(item => stringify(item))
-        return `new ${type}([${tmp.join(', ')}])`
+        const tmp = [];
+        let mutationsFromNowOn = false
+        Array.from(source).forEach(item => {
+          let safeItem = null;
+          if (utils.isObject(item)) {
+            if (visitedRefs.has(item)) {
+              safeItem = visitedRefs.get(item)
+              mutationsFromNowOn = true;
+            } else {
+              objCounter += 1;
+              safeItem = "obj" + objCounter;
+              const breadcrumbsOrig = breadcrumbs;
+              breadcrumbs = [safeItem];
+              codeBefore += `  const ${safeItem} = ${stringify(item)};\n`;
+              breadcrumbs = breadcrumbsOrig;
+            }
+          } else {
+            safeItem = stringify(item, indent + 1);
+          }
+          if (mutationsFromNowOn) {
+            codeAfter += `  ${breadcrumbs.join('')}.add(${safeItem});\n`
+          } else {
+            tmp.push("  ".repeat(indent) + safeItem)
+          }
+        })
+        return `new ${type}([\n${tmp.join(',\n')}\n${"  ".repeat(indent - 1)}])`;
       }
       case 'Map': {
         visitedRefs.set(source, breadcrumbs.join(''));
-        // const tmp = Array.from(source).map(([mapKey, mapValue]) => {
+        // TODO: Handle dirty properties added to Map object
         const tmp = []
+        let mutationsFromNowOn = false
         for (const [mapKey, mapValue] of source.entries()) {
           let safeKey = null;
-          if (utils.isObject(mapKey)) {
+          if (visitedRefs.has(mapKey)) {
+            safeKey = visitedRefs.get(mapKey)
+          } else if (utils.isObject(mapKey)) {
             objCounter += 1;
             safeKey = "obj" + objCounter;
             const breadcrumbsOrig = breadcrumbs;
@@ -147,25 +328,32 @@ function serialize(source, opts = {}) {
             codeBefore += `  const ${safeKey} = ${stringify(mapKey)};\n`;
             breadcrumbs = breadcrumbsOrig;
           } else {
-            safeKey = stringify(mapKey, opts);
+            safeKey = stringify(mapKey, indent + 1);
           }
-          if (visitedRefs.has(mapValue)) {
-            // tmp.push("  ".repeat(indent) + Ref.wrapkey(key, opts) + ': undefined') // To be filled in later
-            codeAfter += `  ${breadcrumbs.join('')}.set(${safeKey}, ${visitedRefs.get(mapValue)});\n`
+          if (visitedRefs.has(mapKey) || visitedRefs.has(mapValue) || mutationsFromNowOn) {
+            mutationsFromNowOn = true;
+
+            if (visitedRefs.has(mapValue)) {
+              // tmp.push("  ".repeat(indent) + Ref.wrapkey(key, opts) + ': undefined') // To be filled in later
+              codeAfter += `  ${breadcrumbs.join('')}.set(${safeKey}, ${visitedRefs.get(mapValue)});\n`
+            } else {
+              codeAfter += `  ${breadcrumbs.join('')}.set(${safeKey}, ${stringify(mapValue, indent + 1)});\n`
+            }
           } else {
             breadcrumbs.push(`.get(${safeKey})`);
             tmp.push("  ".repeat(indent) + `[${safeKey}, ${stringify(mapValue, indent + 1)}]`)
             breadcrumbs.pop()
           }
         }
-        return `new ${type}([\n${tmp.join(',\n')}])`;
+        return `new ${type}([\n${tmp.join(',\n')}\n${"  ".repeat(indent - 1)}])`;
       }
+      case 'Window':
       case 'Object': {
         visitedRefs.set(source, breadcrumbs.join(''))
         const tmp = []
         for (const key in source) {
           if (Object.prototype.hasOwnProperty.call(source, key)) {
-            if(Ref.isSafeKey(key)){
+            if (Ref.isSafeKey(key)) {
               breadcrumbs.push(`.${key}`)
             } else {
               breadcrumbs.push(`[${utils.quote(key, opts)}]`)
@@ -174,15 +362,22 @@ function serialize(source, opts = {}) {
               // tmp.push("  ".repeat(indent) + Ref.wrapkey(key, opts) + ': undefined') // To be filled in later
               codeAfter += `  ${breadcrumbs.join('')} = ${visitedRefs.get(source[key])};\n`
             } else {
-              tmp.push("  ".repeat(indent) + Ref.wrapkey(key, opts) + ': ' + stringify(source[key], indent+1))
+              tmp.push("  ".repeat(indent) + Ref.wrapkey(key, opts) + ': ' + stringify(source[key], indent + 1))
             }
             breadcrumbs.pop()
           }
         }
-        return `{\n${tmp.join(',\n')}\n${"  ".repeat(indent-1)}}`
+        return `{\n${tmp.join(',\n')}\n${"  ".repeat(indent - 1)}}`
       }
-      default:
+      case 'Undefined':
+      case 'Boolean':
+      case 'Number':
         return '' + source
+      default: {
+        console.warn('Unknown type: ' + type)
+        // throw Error('Unknown type: ' + type)
+        return '' + source
+      }
     }
   }
 
