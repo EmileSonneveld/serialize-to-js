@@ -46,341 +46,308 @@ const Ref = require('./internal/reference')
  * console.log(opts.references);
  * //> [ [ '.reference', '.object' ] ]
  *
- * @param {Object|Array|Function|Any} source - source to serialize
- * @param {Object} [opts] - options
+ * @param {Object|Array|Function|*} source - source to serialize
+ * @param {?Object} [opts] - options
  * @param {Boolean} opts.ignoreCircular - ignore circular objects
  * @param {Boolean} opts.reference - reference instead of a copy (requires post-processing of opts.references)
  * @param {Boolean} opts.unsafe - do not escape chars `<>/`
  * @return {String} serialized representation of `source`
  */
-function serialize(source, opts = {}) {
+function serialize(source, opts = null) {
   opts = opts || {}
-
 
   const visitedRefs = new Map()
   const setOrig = visitedRefs.set
-  visitedRefs.set = (key, val) => {
-    if (visitedRefs.has(key)) {
-      throw Error(`this object was already visited! old:${visitedRefs.get(key)} new: ${breadcrumbs.join('')}`)
+  visitedRefs.set = function (key, val) {
+    if (this.has(key)) {
+      throw Error(`this object was already visited! old:${this.get(key)} new: ${breadcrumbs.join('')}`)
     }
-    setOrig.call(visitedRefs, key, val)
+    setOrig.call(this, key, val)
   }
+
   let breadcrumbs = null
-
-  function absorb(source) {
-    const type = utils.toType(source)
-    switch (type) {
-      case 'Null':
-        return 'null'
-      case 'String':
-        return utils.quote(source, opts) || '""'
-      case 'Function':
-      case 'RegExp':
-      case 'Date':
-      case 'Error':
-      case 'Buffer':
-      case 'Int8Array':
-      case 'Uint8Array':
-      case 'Uint8ClampedArray':
-      case 'Int16Array':
-      case 'Uint16Array':
-      case 'Int32Array':
-      case 'Uint32Array':
-      case 'Float32Array':
-      case 'Float64Array': {
-        visitedRefs.set(source, breadcrumbs.join(''))
-        break
-      }
-      case 'Array': {
-        visitedRefs.set(source, breadcrumbs.join(''))
-        for (const k in source) {
-          breadcrumbs.push(`[${k}]`)
-          absorb(source[k])
-          breadcrumbs.pop()
-        }
-        break
-      }
-      case 'Set': {
-        visitedRefs.set(source, breadcrumbs.join(''))
-        // Array.from(source).forEach(item => {
-        //   let safeItem = null;
-        //   if (utils.isObject(item)) {
-        //     if (!visitedRefs.has(item)) {
-        //       objCounter += 1;
-        //       safeItem = "obj" + objCounter;
-        //       const breadcrumbsOrig = breadcrumbs;
-        //       breadcrumbs = [safeItem];
-        //       absorb(item)
-        //       breadcrumbs = breadcrumbsOrig;
-        //     }
-        //   } else {
-        //     absorb(item, indent + 1);
-        //   }
-        // })
-        break
-      }
-      case 'Map': {
-        visitedRefs.set(source, breadcrumbs.join(''));
-        for (const [mapKey, mapValue] of source.entries()) {
-          let safeKey = null;
-          if (visitedRefs.has(mapKey)) {
-            safeKey = visitedRefs.get(mapKey)
-          } else if (utils.isObject(mapKey)) {
-            // objCounter += 1;
-            // safeKey = "obj" + objCounter;
-            // const breadcrumbsOrig = breadcrumbs;
-            // breadcrumbs = [safeKey];
-            // codeBefore += `  const ${safeKey} = ${absorb(mapKey)};\n`;
-            // breadcrumbs = breadcrumbsOrig;
-          } else {
-            safeKey = absorb(mapKey);
-          }
-          if (visitedRefs.has(mapKey) || visitedRefs.has(mapValue)) {
-            // if (visitedRefs.has(mapValue)) {
-            //   codeAfter += `  ${breadcrumbs.join('')}.set(${safeKey}, ${visitedRefs.get(mapValue)});\n`
-            // } else {
-            //   codeAfter += `  ${breadcrumbs.join('')}.set(${safeKey}, ${absorb(mapValue)});\n`
-            // }
-          } else {
-            breadcrumbs.push(`.get(${safeKey})`);
-            absorb(mapValue)
-            breadcrumbs.pop()
-          }
-        }
-        break
-      }
-      case 'Window':
-      case 'global':
-      case 'Object': {
-        visitedRefs.set(source, breadcrumbs.join(''))
-        for (const key in source) {
-          if (Object.prototype.hasOwnProperty.call(source, key)) {
-            if (Ref.isSafeKey(key)) {
-              breadcrumbs.push(`.${key}`)
-            } else {
-              breadcrumbs.push(`[${utils.quote(key, opts)}]`)
-            }
-            if (visitedRefs.has(source[key])) {
-            } else {
-              absorb(source[key])
-            }
-            breadcrumbs.pop()
-          }
-        }
-        break
-      }
-      case 'Undefined':
-      case 'Boolean':
-      case 'Number':
-        return '' + source
-      default: {
-        console.warn('Unknown type: ' + type)
-        // throw Error('Unknown type: ' + type)
-        return '' + source
-      }
-    }
-  }
-
-  if (opts.objectsToLinkTo) {
-    for (const key in opts.objectsToLinkTo) {
-      if (Object.prototype.hasOwnProperty.call(opts.objectsToLinkTo, key)) {
-        breadcrumbs = [key]
-        absorb(opts.objectsToLinkTo[key])
-      }
-    }
-  }
-  // console.log('visitedRefs', visitedRefs)
-  breadcrumbs = ['root']
-
-
   let codeBefore = ""
   let objCounter = 0
   let codeAfter = ""
 
   function stringify(source, indent = 2) {
-    const type = utils.toType(source)
+    try {
+      // if (utils.isProxy(source) === true) {
+      //   return `undefined /* Proxy not supported*/`
+      // }
+      const type = utils.toType(source)
 
-    // https://levelup.gitconnected.com/pass-by-value-vs-pass-by-reference-in-javascript-31e79afe850a
-    // TODO: consider almost everything 'object'. Search for Array, Error, Date, ... in proto
-    // TODO: learn about proto
-    // TODO: Allow to absorb external objects in visitedRefs. For example 'window' or 'modelManager'
-    // TODO: Check if capturing local scope is possible. Maybe isolate a function call, and generate minimal code t oreproduce the function call
-    switch (type) {
-      case 'Null':
-        return 'null'
-      case 'String':
-        return utils.quote(source, opts) || '""'
-      case 'Function': {
-        visitedRefs.set(source, breadcrumbs.join(''))
-        const _tmp = source.toString()
-        const tmp = opts.unsafe ? _tmp : utils.saferFunctionString(_tmp, opts)
-        // append function to es6 function within obj
-        return !/^\s*(function|\([^)]*?\)\s*=>)/m.test(tmp) ? 'function ' + tmp : tmp
-      }
-      case 'RegExp':
-        visitedRefs.set(source, breadcrumbs.join(''))
-        return `new RegExp(${utils.quote(source.source, opts)}, "${source.flags}")`
-      case 'Date':
-        visitedRefs.set(source, breadcrumbs.join(''))
-        if (utils.isInvalidDate(source)) return 'new Date("Invalid Date")'
-        return `new Date(${utils.quote(source.toJSON(), opts)})`
-      case 'Error':
-        visitedRefs.set(source, breadcrumbs.join(''))
-        return `new Error(${utils.quote(source.message, opts)})`
-      case 'Buffer':
-        visitedRefs.set(source, breadcrumbs.join(''))
-        return `Buffer.from("${source.toString('base64')}", "base64")`
-      case 'Array': {
-        visitedRefs.set(source, breadcrumbs.join(''))
-        // TODO: fix this!
-        const tmp = []
-        let counter = 0
-        for (const key in source) {
-          if (Object.prototype.hasOwnProperty.call(source, key)) {
-            if (visitedRefs.has(source[key])) {
-              // tmp.push("  ".repeat(indent) + Ref.wrapkey(key, opts) + ': undefined') // To be filled in later
-              codeAfter += `  ${breadcrumbs.join('')} = ${visitedRefs.get(source[key])};\n`
-            } else {
-              if (Ref.isSafeKey(key)) {
-                breadcrumbs.push(`.${key}`)
+      // https://levelup.gitconnected.com/pass-by-value-vs-pass-by-reference-in-javascript-31e79afe850a
+      // TODO: consider almost everything 'object'. Search for Array, Error, Date, ... in proto
+      // TODO: learn about proto
+      // TODO: Allow to absorb external objects in visitedRefs. For example 'window' or 'modelManager'
+      // TODO: Check if capturing local scope is possible. Maybe isolate a function call, and generate minimal code t oreproduce the function call
+      // Could make it more user friendly by only using late linking when needed.
+      switch (type) {
+        case 'Null':
+          return 'null'
+        case 'String':
+          return utils.quote(source, opts) || '""'
+        case 'AsyncFunction': // TODO: Test
+        case 'Function': {
+          visitedRefs.set(source, breadcrumbs.join(''))
+          let tmp = source.toString()
+          tmp = opts.unsafe ? tmp : utils.saferFunctionString(tmp, opts)
+          tmp = tmp.replace('[native code]', '/*[native code] Avoid this by allowing to link to globalThis object*/')
+          // append function to es6 function within obj
+          return /^\s*((async)?\s?function|\(?[^)]*?\)?\s*=>)/m.test(tmp) ? tmp : 'function ' + tmp
+        }
+        case 'RegExp':
+          visitedRefs.set(source, breadcrumbs.join(''))
+          return `new RegExp(${utils.quote(source.source, opts)}, "${source.flags}")`
+        case 'Date':
+          visitedRefs.set(source, breadcrumbs.join(''))
+          if (utils.isInvalidDate(source)) return 'new Date("Invalid Date")'
+          return `new Date(${utils.quote(source.toJSON(), opts)})`
+        case 'Error':
+          visitedRefs.set(source, breadcrumbs.join(''))
+          return `new Error(${utils.quote(source.message, opts)})`
+        case 'Buffer':
+          visitedRefs.set(source, breadcrumbs.join(''))
+          return `Buffer.from("${source.toString('base64')}", "base64")`
+        case 'Array': {
+          visitedRefs.set(source, breadcrumbs.join(''))
+          const tmp = []
+          let counter = 0
+          let mutationsFromNowOn = false
+          for (const key in source) {
+            if (Object.prototype.hasOwnProperty.call(source, key)) {
+              if (Object.getOwnPropertyDescriptor(source, key).get) {
+                tmp.push(`${"  ".repeat(indent)}undefined /* Getters not supported*/`)
               } else {
-                breadcrumbs.push(`[${utils.quote(key, opts)}]`)
+                if (Ref.isSafeKey(key)) {
+                  breadcrumbs.push(`.${key}`)
+                } else {
+                  breadcrumbs.push(`[${utils.quote(key, opts)}]`)
+                }
+                if (visitedRefs.has(source[key]) || mutationsFromNowOn || String(counter) !== String(key)) {
+                  if (visitedRefs.has(source[key])) {
+                    tmp.push(`${"  ".repeat(indent)}undefined /* Linked later*/`)
+                    codeAfter += `  ${breadcrumbs.join('')} = ${visitedRefs.get(source[key])};\n`
+                  } else {
+                    codeAfter += `  ${breadcrumbs.join('')} = ${stringify(source[key], indent + 1)};\n`
+                  }
+                  mutationsFromNowOn = true
+                } else {
+                  tmp.push(`${"  ".repeat(indent)}${stringify(source[key], indent + 1)}`)
+                }
+                breadcrumbs.pop()
               }
-              tmp.push("  ".repeat(indent) + Ref.wrapkey(key, opts) + ': ' + stringify(source[key], indent + 1))
-              breadcrumbs.pop()
+              counter += 1
             }
           }
-          counter += 1
+          return `[\n${tmp.join(',\n')}\n${"  ".repeat(indent - 1)}]`
         }
-        return `[${tmp.join(',\n')}]`
-      }
-      // {
-      //     visitedRefs.set(source, breadcrumbs.join(''))
-      //     const tmp = []
-      //     for (const k in source) {
-      //       breadcrumbs.push(`[${k}]`)
-      //       tmp.push(stringify(source[k]))
-      //       breadcrumbs.pop()
-      //     }
-      //     return `[${tmp.join(', ')}]`
-      //   }
-      case 'Int8Array':
-      case 'Uint8Array':
-      case 'Uint8ClampedArray':
-      case 'Int16Array':
-      case 'Uint16Array':
-      case 'Int32Array':
-      case 'Uint32Array':
-      case 'Float32Array':
-      case 'Float64Array': {
-        visitedRefs.set(source, breadcrumbs.join(''))
-        const tmp = []
-        for (let i = 0; i < source.length; i++) {
-          tmp.push(source[i])
+        case 'Int8Array':
+        case 'Uint8Array':
+        case 'Uint8ClampedArray':
+        case 'Int16Array':
+        case 'Uint16Array':
+        case 'Int32Array':
+        case 'Uint32Array':
+        case 'Float32Array':
+        case 'Float64Array': {
+          visitedRefs.set(source, breadcrumbs.join(''))
+          const tmp = []
+          for (let i = 0; i < source.length; i++) {
+            tmp.push(source[i])
+          }
+          return `new ${type}([${tmp.join(', ')}])`
         }
-        return `new ${type}([${tmp.join(', ')}])`
-      }
-      case 'Set': {
-        // Adding cyclic references can be added after everything. Even empty initial objects would be fine
+        case 'Set': {
+          // Adding cyclic references can be added after everything. Even empty initial objects would be fine
 
-        visitedRefs.set(source, breadcrumbs.join(''))
-        const tmp = [];
-        let mutationsFromNowOn = false
-        Array.from(source).forEach(item => {
-          let safeItem = null;
-          if (utils.isObject(item)) {
+          visitedRefs.set(source, breadcrumbs.join(''))
+          const tmp = []
+          let mutationsFromNowOn = false
+          Array.from(source).forEach(item => {
+            let safeItem
             if (visitedRefs.has(item)) {
               safeItem = visitedRefs.get(item)
-              mutationsFromNowOn = true;
+              mutationsFromNowOn = true
+            } else if (utils.isObject(item)) {
+              objCounter += 1
+              safeItem = "obj" + objCounter
+              const breadcrumbsOrig = breadcrumbs
+              breadcrumbs = [safeItem]
+              codeBefore += `  const ${safeItem} = ${stringify(item)};\n`
+              breadcrumbs = breadcrumbsOrig
             } else {
-              objCounter += 1;
-              safeItem = "obj" + objCounter;
-              const breadcrumbsOrig = breadcrumbs;
-              breadcrumbs = [safeItem];
-              codeBefore += `  const ${safeItem} = ${stringify(item)};\n`;
-              breadcrumbs = breadcrumbsOrig;
+              safeItem = stringify(item, indent + 1)
             }
-          } else {
-            safeItem = stringify(item, indent + 1);
-          }
-          if (mutationsFromNowOn) {
-            codeAfter += `  ${breadcrumbs.join('')}.add(${safeItem});\n`
-          } else {
-            tmp.push("  ".repeat(indent) + safeItem)
-          }
-        })
-        return `new ${type}([\n${tmp.join(',\n')}\n${"  ".repeat(indent - 1)}])`;
-      }
-      case 'Map': {
-        visitedRefs.set(source, breadcrumbs.join(''));
-        // TODO: Handle dirty properties added to Map object
-        const tmp = []
-        let mutationsFromNowOn = false
-        for (const [mapKey, mapValue] of source.entries()) {
-          let safeKey = null;
-          if (visitedRefs.has(mapKey)) {
-            safeKey = visitedRefs.get(mapKey)
-          } else if (utils.isObject(mapKey)) {
-            objCounter += 1;
-            safeKey = "obj" + objCounter;
-            const breadcrumbsOrig = breadcrumbs;
-            breadcrumbs = [safeKey];
-            codeBefore += `  const ${safeKey} = ${stringify(mapKey)};\n`;
-            breadcrumbs = breadcrumbsOrig;
-          } else {
-            safeKey = stringify(mapKey, indent + 1);
-          }
-          if (visitedRefs.has(mapKey) || visitedRefs.has(mapValue) || mutationsFromNowOn) {
-            mutationsFromNowOn = true;
+            if (mutationsFromNowOn) {
+              codeAfter += `  ${breadcrumbs.join('')}.add(${safeItem});\n`
+            } else {
+              tmp.push("  ".repeat(indent) + safeItem)
+            }
+          })
 
-            if (visitedRefs.has(mapValue)) {
-              // tmp.push("  ".repeat(indent) + Ref.wrapkey(key, opts) + ': undefined') // To be filled in later
-              codeAfter += `  ${breadcrumbs.join('')}.set(${safeKey}, ${visitedRefs.get(mapValue)});\n`
-            } else {
-              codeAfter += `  ${breadcrumbs.join('')}.set(${safeKey}, ${stringify(mapValue, indent + 1)});\n`
+          // Dirty object properties:
+          for (const key in source) {
+            if (Object.prototype.hasOwnProperty.call(source, key)) {
+              if (Object.getOwnPropertyDescriptor(source, key).get) {
+                tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Getters not supported*/`)
+              } else {
+                if (Ref.isSafeKey(key)) {
+                  breadcrumbs.push(`.${key}`)
+                } else {
+                  breadcrumbs.push(`[${utils.quote(key, opts)}]`)
+                }
+                if (visitedRefs.has(source[key])) {
+                  codeAfter += `  ${breadcrumbs.join('')} = ${visitedRefs.get(source[key])};\n`
+                } else {
+                  codeAfter += `  ${breadcrumbs.join('')} = ${stringify(source[key], indent + 1)};\n`
+                }
+                breadcrumbs.pop()
+              }
             }
-          } else {
-            breadcrumbs.push(`.get(${safeKey})`);
-            tmp.push("  ".repeat(indent) + `[${safeKey}, ${stringify(mapValue, indent + 1)}]`)
+          }
+          return `new ${type}([\n${tmp.join(',\n')}\n${"  ".repeat(indent - 1)}])`
+        }
+        case 'Map': {
+          visitedRefs.set(source, breadcrumbs.join(''))
+          const tmp = []
+          let mutationsFromNowOn = false
+          for (const [mapKey, mapValue] of source.entries()) {
+            let safeKey
+            if (visitedRefs.has(mapKey)) {
+              safeKey = visitedRefs.get(mapKey)
+            } else if (utils.isObject(mapKey)) {
+              objCounter += 1
+              safeKey = "obj" + objCounter
+              const breadcrumbsOrig = breadcrumbs
+              breadcrumbs = [safeKey]
+              codeBefore += `  const ${safeKey} = ${stringify(mapKey)};\n`
+              breadcrumbs = breadcrumbsOrig
+            } else {
+              safeKey = stringify(mapKey, indent + 1)
+            }
+
+            const thisBreadcrumb = breadcrumbs.join('')
+            breadcrumbs.push(`.get(${safeKey})`)
+            if (visitedRefs.has(mapKey) || visitedRefs.has(mapValue) || mutationsFromNowOn) {
+              mutationsFromNowOn = true
+
+              if (visitedRefs.has(mapValue)) {
+                tmp.push(`${"  ".repeat(indent)}[${safeKey}, undefined /* Linked later*/]`)
+                codeAfter += `  ${thisBreadcrumb}.set(${safeKey}, ${visitedRefs.get(mapValue)});\n`
+              } else {
+                codeAfter += `  ${thisBreadcrumb}.set(${safeKey}, ${stringify(mapValue, indent + 1)});\n`
+              }
+            } else {
+              tmp.push("  ".repeat(indent) + `[${safeKey}, ${stringify(mapValue, indent + 1)}]`)
+            }
             breadcrumbs.pop()
           }
-        }
-        return `new ${type}([\n${tmp.join(',\n')}\n${"  ".repeat(indent - 1)}])`;
-      }
-      case 'Window':
-      case 'Object': {
-        visitedRefs.set(source, breadcrumbs.join(''))
-        const tmp = []
-        for (const key in source) {
-          if (Object.prototype.hasOwnProperty.call(source, key)) {
-            if (Ref.isSafeKey(key)) {
-              breadcrumbs.push(`.${key}`)
-            } else {
-              breadcrumbs.push(`[${utils.quote(key, opts)}]`)
+
+          // Dirty object properties:
+          for (const key in source) {
+            if (Object.prototype.hasOwnProperty.call(source, key)) {
+              if (Object.getOwnPropertyDescriptor(source, key).get) {
+                tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Getters not supported*/`)
+              } else {
+                if (Ref.isSafeKey(key)) {
+                  breadcrumbs.push(`.${key}`)
+                } else {
+                  breadcrumbs.push(`[${utils.quote(key, opts)}]`)
+                }
+                if (visitedRefs.has(source[key])) {
+                  codeAfter += `  ${breadcrumbs.join('')} = ${visitedRefs.get(source[key])};\n`
+                } else {
+                  codeAfter += `  ${breadcrumbs.join('')} = ${stringify(source[key], indent + 1)};\n`
+                }
+                breadcrumbs.pop()
+              }
             }
-            if (visitedRefs.has(source[key])) {
-              // tmp.push("  ".repeat(indent) + Ref.wrapkey(key, opts) + ': undefined') // To be filled in later
-              codeAfter += `  ${breadcrumbs.join('')} = ${visitedRefs.get(source[key])};\n`
-            } else {
-              tmp.push("  ".repeat(indent) + Ref.wrapkey(key, opts) + ': ' + stringify(source[key], indent + 1))
-            }
-            breadcrumbs.pop()
           }
+          return `new ${type}([\n${tmp.join(',\n')}\n${"  ".repeat(indent - 1)}])`
         }
-        return `{\n${tmp.join(',\n')}\n${"  ".repeat(indent - 1)}}`
+        case 'Window':
+        case 'global':
+        case 'Object': {
+          visitedRefs.set(source, breadcrumbs.join(''))
+          const tmp = []
+          for (const key in source) {
+            if (Object.prototype.hasOwnProperty.call(source, key)) {
+              if (Object.getOwnPropertyDescriptor(source, key).get) {
+                tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Getters not supported*/`)
+              } else {
+                if (Ref.isSafeKey(key)) {
+                  breadcrumbs.push(`.${key}`)
+                } else {
+                  breadcrumbs.push(`[${utils.quote(key, opts)}]`)
+                }
+                try {
+                  if (visitedRefs.has(source[key])) {
+                    tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Linked later*/`)
+                    codeAfter += `  ${breadcrumbs.join('')} = ${visitedRefs.get(source[key])};\n`
+                  } else {
+                    tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: ${stringify(source[key], indent + 1)}`)
+                  }
+                } catch (error) {
+                  tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}:${errorToValue(error)}`)
+
+                }
+                breadcrumbs.pop()
+              }
+            }
+          }
+          return `{\n${tmp.join(',\n')}\n${"  ".repeat(indent - 1)}}`
+        }
+        case 'Undefined':
+        case 'Boolean':
+        case 'Number':
+          return '' + source
+        case 'Symbol':
+          // TODO: Test
+          visitedRefs.set(source, breadcrumbs.join(''))
+          const str = String(visitedRefs)
+          const symbolName = str.substring(7, str.length - 1)
+          return `Symbol(${utils.quote(symbolName, opts)}) /*TODO: Test!*/`
+        default: {
+          // One can find many exotic object types by running: console.log(serialize(window))
+          console.warn(`Unknown type: ${type} source: ${source}`)
+          // throw Error('Unknown type: ' + type)
+          return `undefined /* not supported: ${source}*/`
+        }
       }
-      case 'Undefined':
-      case 'Boolean':
-      case 'Number':
-        return '' + source
-      default: {
-        console.warn('Unknown type: ' + type)
-        // throw Error('Unknown type: ' + type)
-        return '' + source
+    } catch (error) {
+      if (visitedRefs.delete(source)) {
+        console.warn('Dirty error.')
+      }
+      return errorToValue(error)
+    }
+  }
+
+  function errorToValue(error) {
+    let message = error.message
+    if (message.indexOf('\n') !== -1) {
+      message = error.message.substring(0, error.message.indexOf('\\n'))
+    }
+    return `undefined /* Error: ${message}. Breadcrumb: ${breadcrumbs.join('')} */`
+  }
+
+  // First absorb all objects to link to
+  if (opts.objectsToLinkTo) {
+    for (const key in opts.objectsToLinkTo) {
+      if (Object.prototype.hasOwnProperty.call(opts.objectsToLinkTo, key)) {
+        breadcrumbs = [key]
+        stringify(opts.objectsToLinkTo[key])
       }
     }
   }
 
+  // Now reset, and go over the real object
+  // console.log('visitedRefs', visitedRefs)
+  codeBefore = ""
+  objCounter = 0
+  codeAfter = ""
+  breadcrumbs = ['root']
   const codeMiddle = stringify(source, 2)
   return `(function(){
 ${codeBefore}
@@ -393,4 +360,5 @@ ${codeAfter}
 module.exports = serialize
 if (typeof window !== "undefined") {
   window.serialize = serialize
+  window.utils = utils
 }

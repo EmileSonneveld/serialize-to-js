@@ -15,6 +15,10 @@ function log(arg) {
   console.log(JSON.stringify(arg))
 }
 
+async function myAsyncFunction() {
+  return Promise.resolve("Hello");
+}
+
 const isLessV12 = parseInt(process.versions.node.split('.')[0]) < 12
 
 describe.node = isBrowser ? describe.skip : describe
@@ -24,12 +28,12 @@ function looseJsonParse(obj) {
 }
 
 describe('serialize-to-js', function () {
-  function test(name, inp, exp, unsafe, objectsToLinkTo) {
+  function test(name, inp, expSubstring, unsafe, objectsToLinkTo, deepStrictEqual = true) {
     it(name, function () {
 
       console.log("------------ test -------------")
       // console.log("objectsToLinkTo", objectsToLinkTo)
-      const str = serialize(inp, { objectsToLinkTo })
+      const str = serialize(inp, { unsafe, objectsToLinkTo })
       console.log("str:")
       console.log(str)
       const res = looseJsonParse(str)
@@ -38,12 +42,20 @@ describe('serialize-to-js', function () {
       console.log(inp)
       console.log("res:")
       console.log(res)
+      if (expSubstring) {
+        expSubstring = expSubstring.replace(/[\s;]/g, '')
+        console.log("exp:")
+        console.log(expSubstring)
+        const strCopy = str.replace(/[\s;]/g, '')
+        console.log("strCopy:")
+        console.log(strCopy)
+        assert.ok(strCopy.indexOf(expSubstring) !== -1)
+      }
       // assert.ok(deepCompare(inp, res))
       console.log('typeof inp', typeof inp)
-      if (typeof inp === 'object') {
+      if (deepStrictEqual) {
+        // This check fails on functions and Invalid dates
         assert.deepStrictEqual(res, inp)
-      } else {
-        assert.strictEqual(res, inp)
       }
 
       // const res = serialize(inp, { unsafe })//.replace(/\n/g, " ")
@@ -95,10 +107,12 @@ describe('serialize-to-js', function () {
       { '\\": 0}; alert(\'xss\')//': 0 },
       '{"\\u005C\\": 0}; alert(\'xss\')\\u002F\\u002F": 0}'
     )
-    test('function', log, log.toString())
-    test('arrow function', { key: (a) => a + 1 }, '{key: (a) => a + 1}')
+    test('function', log, log.toString(), null, null, false)
+    test('async function', myAsyncFunction, myAsyncFunction.toString(), null, null, false)
+    test('arrow function', { key: (a) => a + 1 }, '{key: (a) => a + 1}', null, null, false)
+    test('arrow function 2', { key: a => a + 1 }, '{key: a => a + 1}', null, null, false)
     test('date', new Date(24 * 12 * 3600000), 'new Date("1970-01-13T00:00:00.000Z")')
-    test('invalid date', new Date('Invalid'), 'new Date("Invalid Date")')
+    test('invalid date', new Date('Invalid'), 'new Date("Invalid Date")', null, null, false)
     test('error', new Error('error'), 'new Error("error")')
     test('error with unsafe message',
       new Error("</script><script>alert('xss')"),
@@ -164,11 +178,11 @@ describe('serialize-to-js', function () {
     )
     test('Set',
       new Set(['a', 1.2, true, ['b', 3], { c: 4 }]),
-      'new Set(["a", 1.2, true, ["b", 3], {c: 4}])'
+      'new Set(["a", 1.2, true, '
     )
     test('Map',
       new Map([['a', 'a'], [1.2, 1.2], [true, true], [['b', 3], ['b', 3]], [{ c: 4 }, { c: 4 }]]),
-      'new Map([["a", "a"], [1.2, 1.2], [true, true], [["b", 3], ["b", 3]], [{c: 4}, {c: 4}]])'
+      'new Map([["a", "a"], [1.2, 1.2], [true, true]'
     )
   })
 
@@ -254,27 +268,6 @@ describe('serialize-to-js', function () {
     }
     test('converting an object of objects using references', o)
 
-    // it('converting an object of objects using references', function () {
-    //
-    //   // const opts = {
-    //   //   reference: true
-    //   // }
-    //   const res = serialize(o)
-    //
-    //   test()
-    //   assert.deepStrictEqual(o, looseJsonParse(res))
-    //   // const exp = '{"0": {four: 4}, a: {"3": "3", one: true, "thr-ee": undefined}, c: {}}'
-    //   // const refs = [
-    //   //   ['.a["4 four"]', '["0"]'],
-    //   //   ['.b', '.a'],
-    //   //   ['.c["0"]', '.a'],
-    //   //   ['.c.d', '.a'],
-    //   //   ['.c["spa ce"]', '.a'],
-    //   //   ['["spa ce"]', '.a']
-    //   // ]
-    //   // assert.strictEqual(res, exp)
-    //   // assert.deepStrictEqual(opts.references, refs)
-    // })
     it('converting an object of objects with opts.unsafe', function () {
       const o1 = {
         one: true,
@@ -299,30 +292,32 @@ describe('serialize-to-js', function () {
         assert.strictEqual(re.flags, re2.flags)
       }
     })
-    it('serializes function with unsafe chars', function () {
+
+    {
       function xss() {
         const str = '</script><script>alert(\'xss\')//'
         const o = { '\\": 0}; alert(\'xss\')//': 0, str }
         return o
       }
 
-      const res = serialize(xss)
-        .replace(/\n\s+/mg, '\n ')
-        .replace(/function xss\(\)/, 'function xss ()') // node v8 has no space before brackets
-        .replace(/\r\n/g, "\n") // Windows has carriage returns
-      assert.strictEqual(res,
-        'function xss () {\n' +
+      test('serializes function with unsafe chars 2', xss, 'function xss () {\n' +
         ' const str = \'\\u003C\\u002Fscript>\\u003Cscript>alert(\\\'xss\\\')//\'\n' +
         ' const o = { \'\\\\": 0}; alert(\\\'xss\\\')//\': 0, str }\n' +
         ' return o\n' +
-        ' }'
-      )
-      const fn = new Function('return ' + res)()
-      assert.deepStrictEqual(fn(), {
-        "\\\": 0}; alert('xss')//": 0,
-        str: "</script><script>alert('xss')//"
-      })
-    })
+        ' }', null, null, false)
+    }
+
+    {
+      const map = new Map([
+        ['a', 'val'],
+        [1.2, "val"],
+        [true, "val"],
+        [['b', 3], "val"],
+        [{ c: 4 }, "val"]
+      ]);
+      test('shall unmarshal Map', map)
+    }
+
     it('shall unmarshal to Invalid Date', function () {
       const res = eval(serialize(new Date('Invalid'))) // eslint-disable-line no-eval
       assert.strictEqual(res.toString(), new Date('Invalid').toString())
@@ -397,12 +392,14 @@ describe('serialize-to-js', function () {
       }
       test('map and refs 3', obj)
     }
+
     {
       const obj = {
         nativeLog: console.log,
       }
       test('global ref console', obj, null, null, { console })
     }
+
     {
       const apple = { appleKey: "appleValue" }
       const orange = { orangeKey: "orangeValue" }
@@ -417,10 +414,49 @@ describe('serialize-to-js', function () {
         nativeLog: console.log,
         rest: {
           k1: global.linkingToThis.appleKey,
-          k2: global.linkingToThis.mapKey.get('key2_mapKey1'),
+          k2: global.linkingToThis.mapKey.get('orangeKey'),
         }
       }
       test('global ref global', obj, null, null, { globalThis, console })
+    }
+
+    {
+      const apple = { appleKey: "appleValue" }
+      const arr = ['a', apple, 'c']
+      const obj = {
+        apple,
+        arr
+      }
+      test('shared obj array', obj)
+    }
+
+    {
+      const arrA = ['a1', 'a2']
+      const arrB = ['b1', 'b2', arrA]
+      // noinspection JSCheckFunctionSignatures
+      arrA.push(arrB)
+      const obj = {
+        arrA,
+      }
+      test('cyclic array', obj)
+    }
+
+    {
+      const arr = ['a', 'b', 'c']
+      arr.dirtyProperty = 'hello there'
+      test('dirty array', arr)
+    }
+
+    {
+      const arr = new Map([['a', true], ['b', true], ['c', true]])
+      arr.dirtyProperty = 'hello there'
+      test('dirty map', arr)
+    }
+
+    {
+      const arr = new Set(['a', 'b', 'c'])
+      arr.dirtyProperty = 'hello there'
+      test('dirty set', arr)
     }
   })
 })
