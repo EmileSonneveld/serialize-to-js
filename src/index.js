@@ -53,7 +53,7 @@ const Ref = require('./internal/reference')
  * @param {Boolean} opts.unsafe - do not escape chars `<>/`
  * @return {String} serialized representation of `source`
  */
-function serialize(source, opts = null) {
+function serialize(src, opts = null) {
   opts = opts || {}
 
   const visitedRefs = new Map()
@@ -69,8 +69,12 @@ function serialize(source, opts = null) {
   let codeBefore = ""
   let objCounter = 0
   let codeAfter = ""
+  let absorbPhase = true
 
   function stringify(source, indent = 2) {
+    if (absorbPhase && source === src) {
+      return
+    }
     try {
       // if (utils.isProxy(source) === true) {
       //   return `undefined /* Proxy not supported*/`
@@ -91,6 +95,7 @@ function serialize(source, opts = null) {
         case 'AsyncFunction': // TODO: Test
         case 'Function': {
           visitedRefs.set(source, breadcrumbs.join(''))
+          // return `undefined /* Functions not logged */`
           let tmp = source.toString()
           tmp = opts.unsafe ? tmp : utils.saferFunctionString(tmp, opts)
           tmp = tmp.replace('[native code]', '/*[native code] Avoid this by allowing to link to globalThis object*/')
@@ -130,6 +135,7 @@ function serialize(source, opts = null) {
                     tmp.push(`${"  ".repeat(indent)}undefined /* Linked later*/`)
                     codeAfter += `  ${breadcrumbs.join('')} = ${visitedRefs.get(source[key])};\n`
                   } else {
+                    // TODO: keep adding undefined for later elements that are still on the good count.
                     codeAfter += `  ${breadcrumbs.join('')} = ${stringify(source[key], indent + 1)};\n`
                   }
                   mutationsFromNowOn = true
@@ -271,6 +277,10 @@ function serialize(source, opts = null) {
         case 'global':
         case 'Object': {
           visitedRefs.set(source, breadcrumbs.join(''))
+          // TODO: Figure out how prototype works. For example, vtkActor logs many non-instance-specific functions..
+          // TODO: When serialising 'window.store' in complex page, some vue components fail:
+          // root._vm._renderProxy._watchers["0"].deps["0"].subs["2"] = root._vm._renderProxy._watchers["0"].deps["0"].subs["0"].deps["1"].subs["1"].deps["2"].subs["1"]
+          // TypeError: Cannot read property 'deps' of undefined
           const tmp = []
           for (const key in source) {
             if (Object.prototype.hasOwnProperty.call(source, key)) {
@@ -291,7 +301,6 @@ function serialize(source, opts = null) {
                   }
                 } catch (error) {
                   tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}:${errorToValue(error)}`)
-
                 }
                 breadcrumbs.pop()
               }
@@ -348,7 +357,9 @@ function serialize(source, opts = null) {
   objCounter = 0
   codeAfter = ""
   breadcrumbs = ['root']
-  const codeMiddle = stringify(source, 2)
+  absorbPhase = false
+
+  const codeMiddle = stringify(src, 2)
   return `(function(){
 ${codeBefore}
   const root = ${codeMiddle};
