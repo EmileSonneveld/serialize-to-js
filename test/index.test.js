@@ -16,7 +16,7 @@ function log(arg) {
 }
 
 async function myAsyncFunction() {
-  return Promise.resolve("Hello");
+  return Promise.resolve("Hello")
 }
 
 const isLessV12 = parseInt(process.versions.node.split('.')[0]) < 12
@@ -24,7 +24,7 @@ const isLessV12 = parseInt(process.versions.node.split('.')[0]) < 12
 describe.node = isBrowser ? describe.skip : describe
 
 function looseJsonParse(obj) {
-  return Function('"use strict";return (' + obj + ')')();
+  return Function('"use strict";return (' + obj + ')')()
 }
 
 describe('serialize-to-js', function () {
@@ -314,7 +314,7 @@ describe('serialize-to-js', function () {
         [true, "val"],
         [['b', 3], "val"],
         [{ c: 4 }, "val"]
-      ]);
+      ])
       test('shall unmarshal Map', map)
     }
 
@@ -333,7 +333,7 @@ describe('serialize-to-js', function () {
         [true, "val"],
         [['b', 3], "val"],
         [{ c: 4 }, "val"]
-      ]);
+      ])
       test('shall unmarshal Map', map)
     }
 
@@ -342,7 +342,7 @@ describe('serialize-to-js', function () {
       const map2 = new Map([
         [mapKey, 'val'],
         ["key2", mapKey],
-      ]);
+      ])
       test('shall unmarshal Map2', map2)
     }
 
@@ -457,6 +457,24 @@ describe('serialize-to-js', function () {
       const arr = new Set(['a', 'b', 'c'])
       arr.dirtyProperty = 'hello there'
       test('dirty set', arr)
+    }
+
+    {
+      const obj = {
+        str: '<script>var a = 0 > 1</script>',
+        num: 3.1415,
+        bool: true,
+        nil: null,
+        undef: undefined,
+        obj: { foo: 'bar' },
+        arr: [1, '2'],
+        regexp: /^test?$/,
+        date: new Date(),
+        buffer: new Buffer.from('data'), // DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+        set: new Set([1, 2, 3]),
+        map: new Map([['a', 1], ['b', 2]])
+      }
+      test('readme example', obj)
     }
   })
 })

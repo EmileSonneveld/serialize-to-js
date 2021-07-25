@@ -123,7 +123,7 @@ function serialize(src, opts = null) {
           for (const key in source) {
             if (Object.prototype.hasOwnProperty.call(source, key)) {
               if (Object.getOwnPropertyDescriptor(source, key).get) {
-                tmp.push(`${"  ".repeat(indent)}undefined /* Getters not supported*/`)
+                tmp.push(`${"  ".repeat(indent)}undefined /* Getters not supported*/`) // They could be statefull. try-catch might be not enough
               } else {
                 if (Ref.isSafeKey(key)) {
                   breadcrumbs.push(`.${key}`)
@@ -197,7 +197,7 @@ function serialize(src, opts = null) {
           for (const key in source) {
             if (Object.prototype.hasOwnProperty.call(source, key)) {
               if (Object.getOwnPropertyDescriptor(source, key).get) {
-                tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Getters not supported*/`)
+                tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Getters not supported*/`) // They could be statefull. try-catch might be not enough
               } else {
                 if (Ref.isSafeKey(key)) {
                   breadcrumbs.push(`.${key}`)
@@ -255,7 +255,7 @@ function serialize(src, opts = null) {
           for (const key in source) {
             if (Object.prototype.hasOwnProperty.call(source, key)) {
               if (Object.getOwnPropertyDescriptor(source, key).get) {
-                tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Getters not supported*/`)
+                tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Getters not supported*/`) // They could be statefull. try-catch might be not enough
               } else {
                 if (Ref.isSafeKey(key)) {
                   breadcrumbs.push(`.${key}`)
@@ -285,7 +285,7 @@ function serialize(src, opts = null) {
           for (const key in source) {
             if (Object.prototype.hasOwnProperty.call(source, key)) {
               if (Object.getOwnPropertyDescriptor(source, key).get) {
-                tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Getters not supported*/`)
+                tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Getters not supported*/`) // They could be statefull. try-catch might be not enough
               } else {
                 if (Ref.isSafeKey(key)) {
                   breadcrumbs.push(`.${key}`)
