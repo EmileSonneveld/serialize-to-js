@@ -84,8 +84,7 @@ function serialize(src, opts = null) {
       // https://levelup.gitconnected.com/pass-by-value-vs-pass-by-reference-in-javascript-31e79afe850a
       // TODO: consider almost everything 'object'. Search for Array, Error, Date, ... in proto
       // TODO: learn about proto
-      // TODO: Allow to absorb external objects in visitedRefs. For example 'window' or 'modelManager'
-      // TODO: Check if capturing local scope is possible. Maybe isolate a function call, and generate minimal code t oreproduce the function call
+      // TODO: Check if capturing local scope is possible. Maybe isolate a function call, and generate minimal code to reproduce the function call
       // Could make it more user friendly by only using late linking when needed.
       switch (type) {
         case 'Null':
@@ -95,7 +94,9 @@ function serialize(src, opts = null) {
         case 'AsyncFunction': // TODO: Test
         case 'Function': {
           visitedRefs.set(source, breadcrumbs.join(''))
-          // return `undefined /* Functions not logged */`
+          if (opts.ignoreFunctions === true) {
+            return `undefined /* ignoreFunctions */`
+          }
           let tmp = source.toString()
           tmp = opts.unsafe ? tmp : utils.saferFunctionString(tmp, opts)
           tmp = tmp.replace('[native code]', '/*[native code] Avoid this by allowing to link to globalThis object*/')
@@ -368,8 +369,17 @@ ${codeAfter}
 })()`
 }
 
-module.exports = serialize
+function slog(...args) {
+  console.log(serialize(...args))
+}
+
+module.exports = {
+  serialize,
+  slog,
+}
+
 if (typeof window !== "undefined") {
   window.serialize = serialize
+  window.slog = slog
   window.utils = utils
 }
