@@ -3,7 +3,8 @@
 'use strict'
 
 const assert = require('assert')
-const serialize = require('../src')
+const src = require('../src')
+const serialize = src.serialize
 
 if (typeof assert.deepStrictEqual === 'undefined') {
   assert.deepStrictEqual = assert.deepEqual // eslint-disable-line
@@ -78,6 +79,7 @@ describe('serialize-to-js', function () {
     test('boolean', true, 'true')
     test('number', 3.1415, '3.1415')
     test('zero', 0, '0')
+    test('negative zero', -0, '-0')
     test('number int', 3, '3')
     test('number negative int', -13, '-13')
     test('number float', 0.1, '0.1')
@@ -184,6 +186,9 @@ describe('serialize-to-js', function () {
       new Map([['a', 'a'], [1.2, 1.2], [true, true], [['b', 3], ['b', 3]], [{ c: 4 }, { c: 4 }]]),
       'new Map([["a", "a"], [1.2, 1.2], [true, true]'
     )
+
+    // Is this a real world example for Symbol?
+    test('Symbol', Symbol("hello there"), 'Symbol("hello there")', null, null, false)
   })
 
   describe('unsafe mode', function () {
@@ -476,5 +481,33 @@ describe('serialize-to-js', function () {
       }
       test('readme example', obj)
     }
+
+    {
+      const obj = {
+        get someGetter() {
+          throw Error("should not call this getter")
+        },
+        set someSetter(value) {
+          throw Error("should not call this setter")
+        }
+      };
+      test('getter and setter throws', obj, "someGetter", null, null, false)
+    }
+
+    {
+      const obj = {
+        get statefullGetterA() {
+          obj.counter += 1
+          return "counter increased A " + obj.counter
+        },
+        counter: 0,
+        get statefullGetterB() {
+          obj.counter += 1
+          return "counter increased B " + obj.counter
+        },
+      }
+      test('getter and setter statefull', obj, "counter", null, null, false)
+    }
+
   })
 })

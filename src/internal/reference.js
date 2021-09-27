@@ -13,17 +13,26 @@ const KEY = /^[a-zA-Z$_][a-zA-Z$_0-9]*$/
  * handle references
  * @constructor
  * @param {Object} references
+ * @param opts
  * @param {boolean} opts.unsafe
  */
-function Ref (references, opts) {
-  this.keys = []
-  this.refs = []
-  this.key = []
-  this.references = references || []
-  this._opts = opts || {}
+function Ref(references, opts) {
+  this.opts = opts || {}
+
+  // https://www.measurethat.net/Benchmarks/ShowResult/224868
+  this.visitedRefs = new Map()
+  const setOrig = this.visitedRefs.set
+  this.visitedRefs.set = function (key, val) {
+    if (this.has(key)) {
+      throw Error(`this object was already visited! old:${this.get(key)} new: ${breadcrumbs.join('')}`)
+    }
+    setOrig.call(this, key, val)
+  }
+
+  this.breadcrumbs = null
 }
 
-Ref.isSafeKey = function (key){
+Ref.isSafeKey = function (key) {
   return KEY.test(key)
 }
 
@@ -31,6 +40,7 @@ Ref.isSafeKey = function (key){
  * wrap an object key
  * @api private
  * @param {String} key - objects key
+ * @param opts
  * @return {String} wrapped key in quotes if necessary
  */
 Ref.wrapkey = function (key, opts) {
@@ -38,61 +48,46 @@ Ref.wrapkey = function (key, opts) {
 }
 
 Ref.prototype = {
+  markAsVisited(source) {
+    this.visitedRefs.set(source, this.join())
+  },
+
+  unmarkVisited(object) {
+    this.visitedRefs.delete(object)
+  },
+
+  isVisited(value) {
+    return this.visitedRefs.has(value)
+  },
+
+  getStatementForObject(object) {
+    if (!this.isVisited(object)) {
+      throw Error("Object should be visited first")
+    }
+    return this.visitedRefs.get(object)
+  },
+
+
   /**
-   * push `key` to interal array
-   * @param {String} key
+   * @param {String} gettingStatement
    */
-  push: function (key) {
-    this.key.push(key)
+  push: function (gettingStatement) {
+    this.breadcrumbs.push(gettingStatement)
   },
   /**
    * remove the last key from internal array
    */
   pop: function () {
-    this.key.pop()
+    this.breadcrumbs.pop()
   },
+
   /**
    * join the keys
    */
-  join: function (key) {
-    let out = ''
-    key = key || this.key
-    if (typeof key === 'string') {
-      key = [key]
-    }
+  join: function () {
+    return this.breadcrumbs.join('')
+  },
 
-    key.forEach(k => {
-      if (KEY.test(k)) {
-        out += '.' + k
-      } else {
-        out += '[' + Ref.wrapkey(k, this._opts) + ']'
-      }
-    })
-    return out
-  },
-  /**
-   * check if object `source` has an already known reference.
-   * If so then origin and source are stored in `opts.reference`
-   * @param {Object} source - object to compare
-   * @return {Boolean}
-   */
-  hasReference: function (source) {
-    let idx
-    if (~(idx = this.refs.indexOf(source))) {
-      this.references.push([this.join(), this.keys[idx]])
-      return true
-    } else {
-      this.refs.push(source)
-      this.keys.push(this.join())
-    }
-  },
-  /**
-   * get the references array
-   * @return {Array} references array
-   */
-  getReferences: function () {
-    return this.references
-  }
 }
 
 module.exports = Ref

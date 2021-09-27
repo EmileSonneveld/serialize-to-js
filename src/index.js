@@ -12,60 +12,20 @@ const Ref = require('./internal/reference')
 /**
  * serializes an object to javascript
  *
- * @example <caption>serializing regex, date, buffer, ...</caption>
- * const serialize = require('serialize-to-js')
- * const obj = {
- *   str: '<script>var a = 0 > 1</script>',
- *   num: 3.1415,
- *   bool: true,
- *   nil: null,
- *   undef: undefined,
- *   obj: { foo: 'bar' },
- *   arr: [1, '2'],
- *   regexp: /^test?$/,
- *   date: new Date(),
- *   buffer: new Buffer('data'),
- *   set: new Set([1, 2, 3]),
- *   map: new Map([['a': 1],['b': 2]])
- * }
- * console.log(serialize(obj))
- * //> '{str: "\u003Cscript\u003Evar a = 0 \u003E 1\u003C\u002Fscript\u003E",
- * //>   num: 3.1415, bool: true, nil: null, undef: undefined,
- * //>   obj: {foo: "bar"}, arr: [1, "2"], regexp: new RegExp("^test?$", ""),
- * //>   date: new Date("2019-12-29T10:37:36.613Z"),
- * //>   buffer: Buffer.from("ZGF0YQ==", "base64"), set: new Set([1, 2, 3]),
- * //>   map: new Map([["a", 1], ["b", 2]])}'
- *
- * @example <caption>serializing while respecting references</caption>
- * const serialize = require('serialize-to-js')
- * const obj = { object: { regexp: /^test?$/ } };
- * obj.reference = obj.object;
- * const opts = { reference: true };
- * console.log(serialize(obj, opts));
- * //> {object: {regexp: /^test?$/}}
- * console.log(opts.references);
- * //> [ [ '.reference', '.object' ] ]
- *
- * @param {Object|Array|Function|*} source - source to serialize
+ * @param {Object|Array|Function|*} src - source to serialize
  * @param {?Object} [opts] - options
  * @param {Boolean} opts.ignoreCircular - ignore circular objects
  * @param {Boolean} opts.reference - reference instead of a copy (requires post-processing of opts.references)
  * @param {Boolean} opts.unsafe - do not escape chars `<>/`
+ * @param {Boolean} opts.ignoreFunctions
+ * @param {Boolean} opts.objectsToLinkTo
  * @return {String} serialized representation of `source`
  */
 function serialize(src, opts = null) {
   opts = opts || {}
 
-  const visitedRefs = new Map()
-  const setOrig = visitedRefs.set
-  visitedRefs.set = function (key, val) {
-    if (this.has(key)) {
-      throw Error(`this object was already visited! old:${this.get(key)} new: ${breadcrumbs.join('')}`)
-    }
-    setOrig.call(this, key, val)
-  }
+  const refs = new Ref([], opts)
 
-  let breadcrumbs = null
   let codeBefore = ""
   let objCounter = 0
   let codeAfter = ""
@@ -84,6 +44,9 @@ function serialize(src, opts = null) {
       // https://levelup.gitconnected.com/pass-by-value-vs-pass-by-reference-in-javascript-31e79afe850a
       // TODO: consider almost everything 'object'. Search for Array, Error, Date, ... in proto
       // TODO: learn about proto
+      // TODO: Save getters and setters as functions
+      //       make it an option to get the value behind getters.
+      //       Determine safty by checking the function content on '=' and "(" and if it starts with "return"
       // TODO: Check if capturing local scope is possible. Maybe isolate a function call, and generate minimal code to reproduce the function call
       // Could make it more user friendly by only using late linking when needed.
       switch (type) {
@@ -93,7 +56,7 @@ function serialize(src, opts = null) {
           return utils.quote(source, opts) || '""'
         case 'AsyncFunction': // TODO: Test
         case 'Function': {
-          visitedRefs.set(source, breadcrumbs.join(''))
+          refs.markAsVisited(source)
           if (opts.ignoreFunctions === true) {
             return `undefined /* ignoreFunctions */`
           }
@@ -104,20 +67,20 @@ function serialize(src, opts = null) {
           return /^\s*((async)?\s?function|\(?[^)]*?\)?\s*=>)/m.test(tmp) ? tmp : 'function ' + tmp
         }
         case 'RegExp':
-          visitedRefs.set(source, breadcrumbs.join(''))
+          refs.markAsVisited(source)
           return `new RegExp(${utils.quote(source.source, opts)}, "${source.flags}")`
         case 'Date':
-          visitedRefs.set(source, breadcrumbs.join(''))
+          refs.markAsVisited(source)
           if (utils.isInvalidDate(source)) return 'new Date("Invalid Date")'
           return `new Date(${utils.quote(source.toJSON(), opts)})`
         case 'Error':
-          visitedRefs.set(source, breadcrumbs.join(''))
+          refs.markAsVisited(source)
           return `new Error(${utils.quote(source.message, opts)})`
         case 'Buffer':
-          visitedRefs.set(source, breadcrumbs.join(''))
+          refs.markAsVisited(source)
           return `Buffer.from("${source.toString('base64')}", "base64")`
         case 'Array': {
-          visitedRefs.set(source, breadcrumbs.join(''))
+          refs.markAsVisited(source)
           const tmp = []
           let counter = 0
           let mutationsFromNowOn = false
@@ -125,25 +88,27 @@ function serialize(src, opts = null) {
             if (Object.prototype.hasOwnProperty.call(source, key)) {
               if (Object.getOwnPropertyDescriptor(source, key).get) {
                 tmp.push(`${"  ".repeat(indent)}undefined /* Getters not supported*/`) // They could be statefull. try-catch might be not enough
+              } else if (Object.getOwnPropertyDescriptor(source, key).set) {
+                tmp.push(`${"  ".repeat(indent)}undefined /* Setters not supported*/`) // They could be statefull. try-catch might be not enough
               } else {
                 if (Ref.isSafeKey(key)) {
-                  breadcrumbs.push(`.${key}`)
+                  refs.breadcrumbs.push(`.${key}`)
                 } else {
-                  breadcrumbs.push(`[${utils.quote(key, opts)}]`)
+                  refs.breadcrumbs.push(`[${utils.quote(key, opts)}]`)
                 }
-                if (visitedRefs.has(source[key]) || mutationsFromNowOn || String(counter) !== String(key)) {
-                  if (visitedRefs.has(source[key])) {
+                if (refs.isVisited(source[key]) || mutationsFromNowOn || String(counter) !== String(key)) {
+                  if (refs.isVisited(source[key])) {
                     tmp.push(`${"  ".repeat(indent)}undefined /* Linked later*/`)
-                    codeAfter += `  ${breadcrumbs.join('')} = ${visitedRefs.get(source[key])};\n`
+                    codeAfter += `  ${refs.join()} = ${refs.getStatementForObject(source[key])};\n`
                   } else {
                     // TODO: keep adding undefined for later elements that are still on the good count.
-                    codeAfter += `  ${breadcrumbs.join('')} = ${stringify(source[key], indent + 1)};\n`
+                    codeAfter += `  ${refs.join()} = ${stringify(source[key], indent + 1)};\n`
                   }
                   mutationsFromNowOn = true
                 } else {
                   tmp.push(`${"  ".repeat(indent)}${stringify(source[key], indent + 1)}`)
                 }
-                breadcrumbs.pop()
+                refs.breadcrumbs.pop()
               }
               counter += 1
             }
@@ -159,7 +124,7 @@ function serialize(src, opts = null) {
         case 'Uint32Array':
         case 'Float32Array':
         case 'Float64Array': {
-          visitedRefs.set(source, breadcrumbs.join(''))
+          refs.markAsVisited(source)
           const tmp = []
           for (let i = 0; i < source.length; i++) {
             tmp.push(source[i])
@@ -169,87 +134,90 @@ function serialize(src, opts = null) {
         case 'Set': {
           // Adding cyclic references can be added after everything. Even empty initial objects would be fine
 
-          visitedRefs.set(source, breadcrumbs.join(''))
+          refs.markAsVisited(source)
           const tmp = []
           let mutationsFromNowOn = false
           Array.from(source).forEach(item => {
             let safeItem
-            if (visitedRefs.has(item)) {
-              safeItem = visitedRefs.get(item)
+            if (refs.isVisited(item)) {
+              safeItem = refs.getStatementForObject(item)
               mutationsFromNowOn = true
             } else if (utils.isObject(item)) {
               objCounter += 1
               safeItem = "obj" + objCounter
-              const breadcrumbsOrig = breadcrumbs
-              breadcrumbs = [safeItem]
+              const breadcrumbsOrig = refs.breadcrumbs
+              refs.breadcrumbs = [safeItem]
               codeBefore += `  const ${safeItem} = ${stringify(item)};\n`
-              breadcrumbs = breadcrumbsOrig
+              refs.breadcrumbs = breadcrumbsOrig
             } else {
               safeItem = stringify(item, indent + 1)
             }
             if (mutationsFromNowOn) {
-              codeAfter += `  ${breadcrumbs.join('')}.add(${safeItem});\n`
+              codeAfter += `  ${refs.join()}.add(${safeItem});\n`
             } else {
               tmp.push("  ".repeat(indent) + safeItem)
             }
           })
 
-          // Dirty object properties:
+          // Dirty object properties: TODO: Dedup
           for (const key in source) {
             if (Object.prototype.hasOwnProperty.call(source, key)) {
               if (Object.getOwnPropertyDescriptor(source, key).get) {
                 tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Getters not supported*/`) // They could be statefull. try-catch might be not enough
+              } else if (Object.getOwnPropertyDescriptor(source, key).set) {
+                tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Setters not supported*/`) // They could be statefull. try-catch might be not enough
               } else {
                 if (Ref.isSafeKey(key)) {
-                  breadcrumbs.push(`.${key}`)
+                  refs.breadcrumbs.push(`.${key}`)
                 } else {
-                  breadcrumbs.push(`[${utils.quote(key, opts)}]`)
+                  refs.breadcrumbs.push(`[${utils.quote(key, opts)}]`)
                 }
-                if (visitedRefs.has(source[key])) {
-                  codeAfter += `  ${breadcrumbs.join('')} = ${visitedRefs.get(source[key])};\n`
+                if (refs.isVisited(source[key])) {
+                  codeAfter += `  ${refs.join()} = ${refs.getStatementForObject(source[key])};\n`
                 } else {
-                  codeAfter += `  ${breadcrumbs.join('')} = ${stringify(source[key], indent + 1)};\n`
+                  codeAfter += `  ${refs.join()} = ${stringify(source[key], indent + 1)};\n`
                 }
-                breadcrumbs.pop()
+                refs.breadcrumbs.pop()
               }
             }
           }
+
           return `new ${type}([\n${tmp.join(',\n')}\n${"  ".repeat(indent - 1)}])`
         }
         case 'Map': {
-          visitedRefs.set(source, breadcrumbs.join(''))
+          refs.markAsVisited(source)
           const tmp = []
           let mutationsFromNowOn = false
           for (const [mapKey, mapValue] of source.entries()) {
             let safeKey
-            if (visitedRefs.has(mapKey)) {
-              safeKey = visitedRefs.get(mapKey)
+            if (refs.isVisited(mapKey)) {
+              safeKey = refs.getStatementForObject(mapKey)
             } else if (utils.isObject(mapKey)) {
               objCounter += 1
               safeKey = "obj" + objCounter
-              const breadcrumbsOrig = breadcrumbs
-              breadcrumbs = [safeKey]
+              const breadcrumbsOrig = refs.breadcrumbs
+              refs.breadcrumbs = [safeKey]
               codeBefore += `  const ${safeKey} = ${stringify(mapKey)};\n`
-              breadcrumbs = breadcrumbsOrig
+              refs.breadcrumbs = breadcrumbsOrig
             } else {
               safeKey = stringify(mapKey, indent + 1)
             }
 
-            const thisBreadcrumb = breadcrumbs.join('')
-            breadcrumbs.push(`.get(${safeKey})`)
-            if (visitedRefs.has(mapKey) || visitedRefs.has(mapValue) || mutationsFromNowOn) {
+            const thisBreadcrumb = refs.join()
+            refs.breadcrumbs.push(`.get(${safeKey})`)
+            if (refs.isVisited(mapKey) || refs.isVisited(mapValue) || mutationsFromNowOn) {
               mutationsFromNowOn = true
 
-              if (visitedRefs.has(mapValue)) {
+              if (refs.isVisited(mapValue)) {
                 tmp.push(`${"  ".repeat(indent)}[${safeKey}, undefined /* Linked later*/]`)
-                codeAfter += `  ${thisBreadcrumb}.set(${safeKey}, ${visitedRefs.get(mapValue)});\n`
+                codeAfter += `  ${thisBreadcrumb}.set(${safeKey}, ${refs.getStatementForObject(mapValue)});\n`
               } else {
                 codeAfter += `  ${thisBreadcrumb}.set(${safeKey}, ${stringify(mapValue, indent + 1)});\n`
               }
             } else {
               tmp.push("  ".repeat(indent) + `[${safeKey}, ${stringify(mapValue, indent + 1)}]`)
             }
-            breadcrumbs.pop()
+            refs.breadcrumbs.pop()
           }
 
           // Dirty object properties:
@@ -257,18 +225,20 @@ function serialize(src, opts = null) {
             if (Object.prototype.hasOwnProperty.call(source, key)) {
               if (Object.getOwnPropertyDescriptor(source, key).get) {
                 tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Getters not supported*/`) // They could be statefull. try-catch might be not enough
+              } else if (Object.getOwnPropertyDescriptor(source, key).set) {
+                tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Setters not supported*/`) // They could be statefull. try-catch might be not enough
               } else {
                 if (Ref.isSafeKey(key)) {
-                  breadcrumbs.push(`.${key}`)
+                  refs.breadcrumbs.push(`.${key}`)
                 } else {
-                  breadcrumbs.push(`[${utils.quote(key, opts)}]`)
+                  refs.breadcrumbs.push(`[${utils.quote(key, opts)}]`)
                 }
-                if (visitedRefs.has(source[key])) {
-                  codeAfter += `  ${breadcrumbs.join('')} = ${visitedRefs.get(source[key])};\n`
+                if (refs.isVisited(source[key])) {
+                  codeAfter += `  ${refs.join()} = ${refs.getStatementForObject(source[key])};\n`
                 } else {
-                  codeAfter += `  ${breadcrumbs.join('')} = ${stringify(source[key], indent + 1)};\n`
+                  codeAfter += `  ${refs.join()} = ${stringify(source[key], indent + 1)};\n`
                 }
-                breadcrumbs.pop()
+                refs.breadcrumbs.pop()
               }
             }
           }
@@ -277,7 +247,7 @@ function serialize(src, opts = null) {
         case 'Window':
         case 'global':
         case 'Object': {
-          visitedRefs.set(source, breadcrumbs.join(''))
+          refs.markAsVisited(source)
           // TODO: Figure out how prototype works. For example, vtkActor logs many non-instance-specific functions..
           // TODO: When serialising 'window.store' in complex page, some vue components fail:
           // root._vm._renderProxy._watchers["0"].deps["0"].subs["2"] = root._vm._renderProxy._watchers["0"].deps["0"].subs["0"].deps["1"].subs["1"].deps["2"].subs["1"]
@@ -287,23 +257,25 @@ function serialize(src, opts = null) {
             if (Object.prototype.hasOwnProperty.call(source, key)) {
               if (Object.getOwnPropertyDescriptor(source, key).get) {
                 tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Getters not supported*/`) // They could be statefull. try-catch might be not enough
+              } else if (Object.getOwnPropertyDescriptor(source, key).set) {
+                tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Setters not supported*/`) // They could be statefull. try-catch might be not enough
               } else {
                 if (Ref.isSafeKey(key)) {
-                  breadcrumbs.push(`.${key}`)
+                  refs.breadcrumbs.push(`.${key}`)
                 } else {
-                  breadcrumbs.push(`[${utils.quote(key, opts)}]`)
+                  refs.breadcrumbs.push(`[${utils.quote(key, opts)}]`)
                 }
                 try {
-                  if (visitedRefs.has(source[key])) {
+                  if (refs.isVisited(source[key])) {
                     tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Linked later*/`)
-                    codeAfter += `  ${breadcrumbs.join('')} = ${visitedRefs.get(source[key])};\n`
+                    codeAfter += `  ${refs.join()} = ${refs.getStatementForObject(source[key])};\n`
                   } else {
                     tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: ${stringify(source[key], indent + 1)}`)
                   }
                 } catch (error) {
                   tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}:${errorToValue(error)}`)
                 }
-                breadcrumbs.pop()
+                refs.breadcrumbs.pop()
               }
             }
           }
@@ -312,13 +284,16 @@ function serialize(src, opts = null) {
         case 'Undefined':
         case 'Boolean':
         case 'Number':
+          if (Object.is(source, -0)) {
+            return '-0' // 0 === -0, so this is probably not important.
+          }
           return '' + source
         case 'Symbol':
-          // TODO: Test
-          visitedRefs.set(source, breadcrumbs.join(''))
-          const str = String(visitedRefs)
+          refs.markAsVisited(source)
+          const str = String(source)
           const symbolName = str.substring(7, str.length - 1)
-          return `Symbol(${utils.quote(symbolName, opts)}) /*TODO: Test!*/`
+          // This will never be the same as the original.
+          return `Symbol(${utils.quote(symbolName, opts)})`
         default: {
           // One can find many exotic object types by running: console.log(serialize(window))
           console.warn(`Unknown type: ${type} source: ${source}`)
@@ -327,7 +302,7 @@ function serialize(src, opts = null) {
         }
       }
     } catch (error) {
-      if (visitedRefs.delete(source)) {
+      if (refs.unmarkVisited(source)) {
         console.warn('Dirty error.')
       }
       return errorToValue(error)
@@ -339,25 +314,25 @@ function serialize(src, opts = null) {
     if (message.indexOf('\n') !== -1) {
       message = error.message.substring(0, error.message.indexOf('\\n'))
     }
-    return `undefined /* Error: ${message}. Breadcrumb: ${breadcrumbs.join('')} */`
+    return `undefined /* Error: ${message}. Breadcrumb: ${refs.join()} */`
   }
 
   // First absorb all objects to link to
   if (opts.objectsToLinkTo) {
     for (const key in opts.objectsToLinkTo) {
       if (Object.prototype.hasOwnProperty.call(opts.objectsToLinkTo, key)) {
-        breadcrumbs = [key]
+        refs.breadcrumbs = [key]
         stringify(opts.objectsToLinkTo[key])
       }
     }
   }
 
   // Now reset, and go over the real object
-  // console.log('visitedRefs', visitedRefs)
+  // console.log('visitedRefs', refs.visitedRefs)
   codeBefore = ""
   objCounter = 0
   codeAfter = ""
-  breadcrumbs = ['root']
+  refs.breadcrumbs = ['root']
   absorbPhase = false
 
   const codeMiddle = stringify(src, 2)
