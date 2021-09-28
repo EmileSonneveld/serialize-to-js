@@ -5,7 +5,6 @@
 
 'use strict'
 
-// dependencies
 const utils = require('./internal/utils')
 const Ref = require('./internal/reference')
 
@@ -31,6 +30,41 @@ function serialize(src, opts = null) {
   let codeAfter = ""
   let absorbPhase = true
 
+  /**
+   * TODO: Fix. Test with indented dirty objects
+   */
+  function appendDirtyProps(source) {
+    const descs = Object.getOwnPropertyDescriptors(source)
+    for (const key in descs) {
+      if (Object.prototype.hasOwnProperty.call(descs, key)) {
+        const propDesc = descs[key]
+        if (propDesc.get || propDesc.set) {
+          codeAfter += `  Object.defineProperty(${refs.join()}, ${stringify(key)}, {`
+          if (propDesc.get) {
+            codeAfter += `get: () => {}, `
+          }
+          if (propDesc.set) {
+            codeAfter += `set: (val) => {}, `
+          }
+          codeAfter += `}); /* get/set not supported */\n`
+        } else {
+          if (Ref.isSafeKey(key)) {
+            refs.breadcrumbs.push(`.${key}`)
+          } else {
+            refs.breadcrumbs.push(`[${utils.quote(key, opts)}]`)
+          }
+          if (refs.isVisited(source[key])) {
+            codeAfter += `  ${refs.join()} = ${refs.getStatementForObject(source[key])};\n`
+          } else {
+            const nestedCode = stringify(source[key])
+            codeAfter += `  ${refs.join()} = ${nestedCode};\n` // TODO: keep order of properties. Fix cases where 'codeAfter+=' loses information.
+          }
+          refs.breadcrumbs.pop()
+        }
+      }
+    }
+  }
+
   function stringify(source, indent = 2) {
     if (absorbPhase && source === src) {
       return
@@ -55,7 +89,7 @@ function serialize(src, opts = null) {
         case 'String':
           return utils.quote(source, opts) || '""'
         case 'AsyncFunction': // TODO: Test
-        case 'Function': {
+        case 'Function': { // TODO: Assign the name of the function (`const someName = ()=>{}` can do that)
           refs.markAsVisited(source)
           if (opts.ignoreFunctions === true) {
             return `undefined /* ignoreFunctions */`
@@ -129,6 +163,8 @@ function serialize(src, opts = null) {
           for (let i = 0; i < source.length; i++) {
             tmp.push(source[i])
           }
+
+          appendDirtyProps(source)
           return `new ${type}([${tmp.join(', ')}])`
         }
         case 'Set': {
@@ -159,28 +195,7 @@ function serialize(src, opts = null) {
             }
           })
 
-          // Dirty object properties: TODO: Dedup
-          for (const key in source) {
-            if (Object.prototype.hasOwnProperty.call(source, key)) {
-              if (Object.getOwnPropertyDescriptor(source, key).get) {
-                tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Getters not supported*/`) // They could be statefull. try-catch might be not enough
-              } else if (Object.getOwnPropertyDescriptor(source, key).set) {
-                tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Setters not supported*/`) // They could be statefull. try-catch might be not enough
-              } else {
-                if (Ref.isSafeKey(key)) {
-                  refs.breadcrumbs.push(`.${key}`)
-                } else {
-                  refs.breadcrumbs.push(`[${utils.quote(key, opts)}]`)
-                }
-                if (refs.isVisited(source[key])) {
-                  codeAfter += `  ${refs.join()} = ${refs.getStatementForObject(source[key])};\n`
-                } else {
-                  codeAfter += `  ${refs.join()} = ${stringify(source[key], indent + 1)};\n`
-                }
-                refs.breadcrumbs.pop()
-              }
-            }
-          }
+          appendDirtyProps(source)
 
           return `new ${type}([\n${tmp.join(',\n')}\n${"  ".repeat(indent - 1)}])`
         }
@@ -197,7 +212,8 @@ function serialize(src, opts = null) {
               safeKey = "obj" + objCounter
               const breadcrumbsOrig = refs.breadcrumbs
               refs.breadcrumbs = [safeKey]
-              codeBefore += `  const ${safeKey} = ${stringify(mapKey)};\n`
+              const nestedCode = stringify(mapKey)
+              codeBefore += `  const ${safeKey} = ${nestedCode};\n`
               refs.breadcrumbs = breadcrumbsOrig
             } else {
               safeKey = stringify(mapKey, indent + 1)
@@ -212,7 +228,8 @@ function serialize(src, opts = null) {
                 tmp.push(`${"  ".repeat(indent)}[${safeKey}, undefined /* Linked later*/]`)
                 codeAfter += `  ${thisBreadcrumb}.set(${safeKey}, ${refs.getStatementForObject(mapValue)});\n`
               } else {
-                codeAfter += `  ${thisBreadcrumb}.set(${safeKey}, ${stringify(mapValue, indent + 1)});\n`
+                const nestedCode = stringify(mapValue, indent + 1)
+                codeAfter += `  ${thisBreadcrumb}.set(${safeKey}, ${nestedCode});\n`
               }
             } else {
               tmp.push("  ".repeat(indent) + `[${safeKey}, ${stringify(mapValue, indent + 1)}]`)
@@ -220,28 +237,8 @@ function serialize(src, opts = null) {
             refs.breadcrumbs.pop()
           }
 
-          // Dirty object properties:
-          for (const key in source) {
-            if (Object.prototype.hasOwnProperty.call(source, key)) {
-              if (Object.getOwnPropertyDescriptor(source, key).get) {
-                tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Getters not supported*/`) // They could be statefull. try-catch might be not enough
-              } else if (Object.getOwnPropertyDescriptor(source, key).set) {
-                tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Setters not supported*/`) // They could be statefull. try-catch might be not enough
-              } else {
-                if (Ref.isSafeKey(key)) {
-                  refs.breadcrumbs.push(`.${key}`)
-                } else {
-                  refs.breadcrumbs.push(`[${utils.quote(key, opts)}]`)
-                }
-                if (refs.isVisited(source[key])) {
-                  codeAfter += `  ${refs.join()} = ${refs.getStatementForObject(source[key])};\n`
-                } else {
-                  codeAfter += `  ${refs.join()} = ${stringify(source[key], indent + 1)};\n`
-                }
-                refs.breadcrumbs.pop()
-              }
-            }
-          }
+          appendDirtyProps(source)
+
           return `new ${type}([\n${tmp.join(',\n')}\n${"  ".repeat(indent - 1)}])`
         }
         case 'Window':
@@ -253,31 +250,35 @@ function serialize(src, opts = null) {
           // root._vm._renderProxy._watchers["0"].deps["0"].subs["2"] = root._vm._renderProxy._watchers["0"].deps["0"].subs["0"].deps["1"].subs["1"].deps["2"].subs["1"]
           // TypeError: Cannot read property 'deps' of undefined
           const tmp = []
-          for (const key in source) {
-            if (Object.prototype.hasOwnProperty.call(source, key)) {
-              if (Object.getOwnPropertyDescriptor(source, key).get) {
-                tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Getters not supported*/`) // They could be statefull. try-catch might be not enough
-              } else if (Object.getOwnPropertyDescriptor(source, key).set) {
-                tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Setters not supported*/`) // They could be statefull. try-catch might be not enough
-              } else {
-                if (Ref.isSafeKey(key)) {
-                  refs.breadcrumbs.push(`.${key}`)
+          if (true) {
+            for (const key in source) {
+              if (Object.prototype.hasOwnProperty.call(source, key)) {
+                if (Object.getOwnPropertyDescriptor(source, key).get) {
+                  tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Getters not supported*/`) // They could be statefull. try-catch might be not enough
+                } else if (Object.getOwnPropertyDescriptor(source, key).set) {
+                  tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Setters not supported*/`) // They could be statefull. try-catch might be not enough
                 } else {
-                  refs.breadcrumbs.push(`[${utils.quote(key, opts)}]`)
-                }
-                try {
-                  if (refs.isVisited(source[key])) {
-                    tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Linked later*/`)
-                    codeAfter += `  ${refs.join()} = ${refs.getStatementForObject(source[key])};\n`
+                  if (Ref.isSafeKey(key)) {
+                    refs.breadcrumbs.push(`.${key}`)
                   } else {
-                    tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: ${stringify(source[key], indent + 1)}`)
+                    refs.breadcrumbs.push(`[${utils.quote(key, opts)}]`)
                   }
-                } catch (error) {
-                  tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}:${errorToValue(error)}`)
+                  try {
+                    if (refs.isVisited(source[key])) {
+                      tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Linked later*/`)
+                      codeAfter += `  ${refs.join()} = ${refs.getStatementForObject(source[key])};\n`
+                    } else {
+                      tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: ${stringify(source[key], indent + 1)}`)
+                    }
+                  } catch (error) {
+                    tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}:${errorToValue(error)}`)
+                  }
+                  refs.breadcrumbs.pop()
                 }
-                refs.breadcrumbs.pop()
               }
             }
+          } else {
+            appendDirtyProps(source) // TODO: Fix order of properties before this is usable.
           }
           return `{\n${tmp.join(',\n')}\n${"  ".repeat(indent - 1)}}`
         }
@@ -293,6 +294,7 @@ function serialize(src, opts = null) {
           const str = String(source)
           const symbolName = str.substring(7, str.length - 1)
           // This will never be the same as the original.
+          // Can not have dirty props
           return `Symbol(${utils.quote(symbolName, opts)})`
         default: {
           // One can find many exotic object types by running: console.log(serialize(window))

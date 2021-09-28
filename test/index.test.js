@@ -111,8 +111,8 @@ describe('serialize-to-js', function () {
     )
     test('function', log, log.toString(), null, null, false)
     test('async function', myAsyncFunction, myAsyncFunction.toString(), null, null, false)
-    test('arrow function', { key: (a) => a + 1 }, '{key: (a) => a + 1}', null, null, false)
-    test('arrow function 2', { key: a => a + 1 }, '{key: a => a + 1}', null, null, false)
+    test('arrow function', { key: (a) => a + 1 }, '(a) => a + 1', null, null, false)
+    test('arrow function 2', { key: a => a + 1 }, 'a => a + 1', null, null, false)
     test('date', new Date(24 * 12 * 3600000), 'new Date("1970-01-13T00:00:00.000Z")')
     test('invalid date', new Date('Invalid'), 'new Date("Invalid Date")', null, null, false)
     test('error', new Error('error'), 'new Error("error")')
@@ -183,7 +183,7 @@ describe('serialize-to-js', function () {
       'new Set(["a", 1.2, true, '
     )
     test('Map',
-      new Map([['a', 'a'], [1.2, 1.2], [true, true], [['b', 3], ['b', 3]], [{ c: 4 }, { c: 4 }]]),
+      new Map([['a', 'a'], [1.2, 1.2], [true, true], [['b', 3], ['b', 4]], [{ c: 4 }, { c: 5 }]]),
       'new Map([["a", "a"], [1.2, 1.2], [true, true]'
     )
 
@@ -247,6 +247,7 @@ describe('serialize-to-js', function () {
         b: o1
       }
       const res = serialize(o)
+      console.log("res", res)
       const exp = '{a: {"3": "3", one: true, "thr-ee": undefined, "4 four": "four\\n\\u003Ctest\\u003E\\u003C\\u002Ftest\\u003E", "five\\"(5)": 5}, b: {"3": "3", one: true, "thr-ee": undefined, "4 four": "four\\n\\u003Ctest\\u003E\\u003C\\u002Ftest\\u003E", "five\\"(5)": 5}}'
       // console.log(JSON.stringify(res))
       assert.deepStrictEqual(looseJsonParse(res), looseJsonParse(exp))
@@ -459,6 +460,35 @@ describe('serialize-to-js', function () {
     }
 
     {
+      const map = new Map([['a', true], ['b', true], ['c', true]])
+      map.dirtyProperty = {str: 'hello there'}
+      Object.defineProperty(map, 'dirtyGetter', {
+        enumerable: true,
+        get: function () {
+          return "Dirty getter return value"
+        },
+      })
+      Object.defineProperty(map, 'dirtySetter', {
+        enumerable: true,
+        set: function (value) {
+          console.log("Dirty setter value: " + value)
+        },
+      })
+      Object.defineProperty(map, 'dirtyGetSet', {
+        enumerable: true,
+        get: function () {
+          return "dirtyGetSet return value"
+        },
+        set: function (value) {
+          console.log("Dirty getSet value: " + value)
+        },
+      })
+      const obj = {map}
+
+      test('dirty map get and set', obj, 'dirtySetter', null, null, false)
+    }
+
+    {
       const arr = new Set(['a', 'b', 'c'])
       arr.dirtyProperty = 'hello there'
       test('dirty set', arr)
@@ -490,7 +520,7 @@ describe('serialize-to-js', function () {
         set someSetter(value) {
           throw Error("should not call this setter")
         }
-      };
+      }
       test('getter and setter throws', obj, "someGetter", null, null, false)
     }
 
