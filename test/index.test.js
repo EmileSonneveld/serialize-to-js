@@ -57,18 +57,6 @@ function test(name, inp, expSubstring, unsafe, objectsToLinkTo, deepStrictEqual 
       // This check fails on functions and Invalid dates
       assert.deepStrictEqual(res, inp)
     }
-
-    // const res = serialize(inp, { unsafe })//.replace(/\n/g, " ")
-    // console.log(res)
-    // console.log("---------")
-    // console.log(exp)
-    // console.log(eval(res))
-    // console.log(eval(`(()=>{return ${exp}})()`))
-    // if (typeof exp === 'object') {
-    //   assert.deepStrictEqual(res, inp)
-    // } else {
-    //   assert.strictEqual(res, exp)
-    // }
   })
 }
 
@@ -112,7 +100,7 @@ describe('safe mode', function () {
   )
   test('string with all unsafe characters', '<>\\\\ \t\n/', '"\\u003C\\u003E\\u005C\\u005C \\t\\n\\u002F"')
   test('empty object', {}, '{}')
-  test('object', { a: 1, b: 2 }, '{a: 1, b: 2}')
+  test('object simple', { a: 1, b: 2 }, '{a: 1, b: 2}')
   test('object with backslash', { backslash: '\\' }, '"\\u005C"')
   test('object of primitives',
     { one: true, two: false, 'thr-ee': undefined, four: 1, 5: 3.1415, six: -17, 'se ven': 'string' },
@@ -389,7 +377,7 @@ describe('others', function () {
     const apple = { appleKey: "appleValue" }
     const obj = {
       mApple: apple,
-      set: new Set([1, 2, apple, 3, 4])
+      set: new Set([1, 2, apple, new Set([new Set([5, 6]), 7, 8]), 3, 4])
     }
     test('map and refs 2', obj)
   }
@@ -565,23 +553,32 @@ describe('others', function () {
   }
 })
 
-describe("Car object test", () => {
-  class Car {
-    constructor(name, year) {
-      this.name = name
-      this.year = year
+describe("object test", () => {
+  it("Car", () => {
+    class Car {
+      constructor(name, year) {
+        this.name = name
+        this.year = year
+      }
+
+      age() {
+        let date = new Date()
+        return date.getFullYear() - this.year
+      }
     }
 
-    age() {
-      let date = new Date()
-      return date.getFullYear() - this.year
+    const yaris = new Car('Yaris', 2019)
+    const obj = {
+      Car,
+      yaris,
     }
-  }
 
-  const yaris = new Car('Yaris', 2019)
-  const obj = {
-    Car,
-    yaris,
-  }
-  test('Car object', obj, "Yaris", null, null, false)
+    const str = serialize(obj)
+    const res = looseJsonParse(str)
+    assert.notStrictEqual(res.age, null)
+    const age = res.age()
+    assert.notStrictEqual(age, null)
+
+    test('Car object', obj, "Yaris", null, null, false)
+  })
 })
