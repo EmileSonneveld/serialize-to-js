@@ -30,9 +30,6 @@ function serialize(src, opts = null) {
   let codeAfter = ""
   let absorbPhase = true
 
-  /**
-   * TODO: Fix. Test with indented dirty objects
-   */
   function appendDirtyProps(source) {
     const descs = Object.getOwnPropertyDescriptors(source)
     for (const key in descs) {
@@ -57,7 +54,7 @@ function serialize(src, opts = null) {
             codeAfter += `  ${refs.join()} = ${refs.getStatementForObject(source[key])};\n`
           } else {
             const nestedCode = stringify(source[key])
-            codeAfter += `  ${refs.join()} = ${nestedCode};\n` // TODO: keep order of properties. Fix cases where 'codeAfter+=' loses information.
+            codeAfter += `  ${refs.join()} = ${nestedCode};\n`
           }
           refs.breadcrumbs.pop()
         }
@@ -88,7 +85,7 @@ function serialize(src, opts = null) {
           return 'null'
         case 'String':
           return utils.quote(source, opts) || '""'
-        case 'AsyncFunction': // TODO: Test
+        case 'AsyncFunction':
         case 'Function': { // TODO: Assign the name of the function (`const someName = ()=>{}` can do that)
           refs.markAsVisited(source)
           if (opts.ignoreFunctions === true) {
@@ -97,8 +94,9 @@ function serialize(src, opts = null) {
           let tmp = source.toString()
           tmp = opts.unsafe ? tmp : utils.saferFunctionString(tmp, opts)
           tmp = tmp.replace('[native code]', '/*[native code] Avoid this by allowing to link to globalThis object*/')
+          return tmp
           // append function to es6 function within obj
-          return /^\s*((async)?\s?function|\(?[^)]*?\)?\s*=>)/m.test(tmp) ? tmp : 'function ' + tmp
+          // return /^\s*((async)?\s?function|\(?[^)]*?\)?\s*=>)/m.test(tmp) ? tmp : 'function ' + tmp
         }
         case 'RegExp':
           refs.markAsVisited(source)
@@ -136,7 +134,8 @@ function serialize(src, opts = null) {
                     codeAfter += `  ${refs.join()} = ${refs.getStatementForObject(source[key])};\n`
                   } else {
                     // TODO: keep adding undefined for later elements that are still on the good count.
-                    codeAfter += `  ${refs.join()} = ${stringify(source[key], indent + 1)};\n`
+                    const tmpCodeAfter = stringify(source[key], indent + 1)
+                    codeAfter += `  ${refs.join()} = ${tmpCodeAfter};\n`
                   }
                   mutationsFromNowOn = true
                 } else {
@@ -228,8 +227,8 @@ function serialize(src, opts = null) {
                 tmp.push(`${"  ".repeat(indent)}[${safeKey}, undefined /* Linked later*/]`)
                 codeAfter += `  ${thisBreadcrumb}.set(${safeKey}, ${refs.getStatementForObject(mapValue)});\n`
               } else {
-                const nestedCode = stringify(mapValue, indent + 1)
-                codeAfter += `  ${thisBreadcrumb}.set(${safeKey}, ${nestedCode});\n`
+                const tmpCodeAfter = stringify(mapValue, indent + 1)
+                codeAfter += `  ${thisBreadcrumb}.set(${safeKey}, ${tmpCodeAfter});\n`
               }
             } else {
               tmp.push("  ".repeat(indent) + `[${safeKey}, ${stringify(mapValue, indent + 1)}]`)
@@ -251,32 +250,32 @@ function serialize(src, opts = null) {
           // TypeError: Cannot read property 'deps' of undefined
           const tmp = []
           if (true) {
-            for (const key in source) {
-              if (Object.prototype.hasOwnProperty.call(source, key)) {
-                if (Object.getOwnPropertyDescriptor(source, key).get) {
-                  tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Getters not supported*/`) // They could be statefull. try-catch might be not enough
-                } else if (Object.getOwnPropertyDescriptor(source, key).set) {
-                  tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Setters not supported*/`) // They could be statefull. try-catch might be not enough
+          for (const key in source) {
+            if (Object.prototype.hasOwnProperty.call(source, key)) {
+              if (Object.getOwnPropertyDescriptor(source, key).get) {
+                tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Getters not supported*/`) // They could be statefull. try-catch might be not enough
+              } else if (Object.getOwnPropertyDescriptor(source, key).set) {
+                tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Setters not supported*/`) // They could be statefull. try-catch might be not enough
+              } else {
+                if (Ref.isSafeKey(key)) {
+                  refs.breadcrumbs.push(`.${key}`)
                 } else {
-                  if (Ref.isSafeKey(key)) {
-                    refs.breadcrumbs.push(`.${key}`)
-                  } else {
-                    refs.breadcrumbs.push(`[${utils.quote(key, opts)}]`)
-                  }
-                  try {
-                    if (refs.isVisited(source[key])) {
-                      tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Linked later*/`)
-                      codeAfter += `  ${refs.join()} = ${refs.getStatementForObject(source[key])};\n`
-                    } else {
-                      tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: ${stringify(source[key], indent + 1)}`)
-                    }
-                  } catch (error) {
-                    tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}:${errorToValue(error)}`)
-                  }
-                  refs.breadcrumbs.pop()
+                  refs.breadcrumbs.push(`[${utils.quote(key, opts)}]`)
                 }
+                try {
+                  if (refs.isVisited(source[key])) {
+                    tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Linked later*/`)
+                    codeAfter += `  ${refs.join()} = ${refs.getStatementForObject(source[key])};\n`
+                  } else {
+                    tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: ${stringify(source[key], indent + 1)}`)
+                  }
+                } catch (error) {
+                  tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}:${errorToValue(error)}`)
+                }
+                refs.breadcrumbs.pop()
               }
             }
+          }
           } else {
             appendDirtyProps(source) // TODO: Fix order of properties before this is usable.
           }
@@ -296,6 +295,10 @@ function serialize(src, opts = null) {
           // This will never be the same as the original.
           // Can not have dirty props
           return `Symbol(${utils.quote(symbolName, opts)})`
+        // case 'HTMLDocument':
+        // case 'HTMLBodyElement':
+        // Low prio: serialise HTML elements
+        //   return `undefined /* not supported: ${source}*/`
         default: {
           // One can find many exotic object types by running: console.log(serialize(window))
           console.warn(`Unknown type: ${type} source: ${source}`)
