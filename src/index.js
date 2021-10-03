@@ -30,7 +30,7 @@ function serialize(src, opts = null) {
 
 
   function stringify(source, indent = 2) {
-    let codeBefore = "" // TODO: Test nested before
+    let codeBefore = ""
     let codeMain = ""
     let codeAfter = ""
     if (absorbPhase && source === src) {
@@ -79,7 +79,6 @@ function serialize(src, opts = null) {
 
       // https://levelup.gitconnected.com/pass-by-value-vs-pass-by-reference-in-javascript-31e79afe850a
       // TODO: consider almost everything 'object'. Search for Array, Error, Date, ... in proto
-      // TODO: learn about proto
       // TODO: Save getters and setters as functions
       //       make it an option to get the value behind getters.
       //       Determine safty by checking the function content on '=' and "(" and if it starts with "return"
@@ -104,6 +103,9 @@ function serialize(src, opts = null) {
             codeMain += tmp
             // append function to es6 function within obj
             // codeMain += /^\s*((async)?\s?function|\(?[^)]*?\)?\s*=>)/m.test(tmp) ? tmp : 'function ' + tmp
+            refs.breadcrumbs.push(".prototype")
+            refs.markAsVisited(source.prototype) // TODO: test with function constructors (class is already tested)
+            refs.breadcrumbs.pop()
           }
           break
         }
@@ -282,12 +284,12 @@ function serialize(src, opts = null) {
         case 'global':
         case 'Object': {
           refs.markAsVisited(source)
-          // TODO: Figure out how prototype works. For example, vtkActor logs many non-instance-specific functions..
+          // TODO: Test with vtkActor
           // TODO: When serialising 'window.store' in complex page, some vue components fail:
           // root._vm._renderProxy._watchers["0"].deps["0"].subs["2"] = root._vm._renderProxy._watchers["0"].deps["0"].subs["0"].deps["1"].subs["1"].deps["2"].subs["1"]
           // TypeError: Cannot read property 'deps' of undefined
-          const tmp = []
           if (true) {
+            const tmp = []
             for (const key in source) {
               if (Object.prototype.hasOwnProperty.call(source, key)) {
                 if (Object.getOwnPropertyDescriptor(source, key).get) {
@@ -317,10 +319,27 @@ function serialize(src, opts = null) {
                 }
               }
             }
+            codeMain += `{\n${tmp.join(',\n')}\n${"  ".repeat(indent - 1)}}`
           } else {
-            appendDirtyProps(source) // TODO: Fix order of properties before this is usable.
+            // This option would be more compatible with python
+            appendDirtyProps(source)
+            codeMain += "{}"
           }
-          codeMain += `{\n${tmp.join(',\n')}\n${"  ".repeat(indent - 1)}}`
+
+          if (source.__proto__ !== ({}).__proto__) {
+            if (!refs.isVisited(source.__proto__.constructor)) {
+              objCounter += 1
+              const safeKey = "obj" + objCounter
+              const breadcrumbsOrig = refs.breadcrumbs
+              refs.breadcrumbs = [safeKey]
+              const ret = stringify(source.__proto__.constructor)
+              codeBefore += ret.codeBefore
+              codeBefore += `  const ${safeKey} = ${ret.codeMain};\n`
+              codeAfter += ret.codeAfter
+              refs.breadcrumbs = breadcrumbsOrig
+            }
+            codeAfter += `  ${refs.join()}.__proto__ = ${refs.getStatementForObject(source.__proto__)};\n`
+          }
           break
         }
         case 'Undefined':

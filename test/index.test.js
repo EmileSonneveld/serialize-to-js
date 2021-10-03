@@ -531,7 +531,7 @@ describe('others', function () {
         throw Error("should not call this getter")
       },
       set someSetter(value) {
-        throw Error("should not call this setter")
+        throw Error("should not call this setter. value: " + value)
       }
     }
     test('getter and setter throws', obj, "someGetter", null, null, false)
@@ -554,31 +554,52 @@ describe('others', function () {
 })
 
 describe("object test", () => {
-  it("Car", () => {
-    class Car {
-      constructor(name, year) {
-        this.name = name
-        this.year = year
-      }
-
-      age() {
-        let date = new Date()
-        return date.getFullYear() - this.year
-      }
+  class Car {
+    constructor(name, year) {
+      this.name = name
+      this.year = year
     }
 
+    age() {
+      let date = new Date()
+      return date.getFullYear() - this.year
+    }
+  }
+
+  it("Car 1", () => {
     const yaris = new Car('Yaris', 2019)
     const obj = {
-      Car,
+      // Car,
       yaris,
     }
 
     const str = serialize(obj)
+    console.log(str)
     const res = looseJsonParse(str)
-    assert.notStrictEqual(res.age, null)
-    const age = res.age()
+    assert.notStrictEqual(res.yaris.age, null)
+    const age = res.yaris.age()
+    console.log("res.yaris.age(): ", age)
     assert.notStrictEqual(age, null)
 
     test('Car object', obj, "Yaris", null, null, false)
   })
+
+  it("Car 2", () => {
+    const yaris = new Car('Yaris', 2019)
+    const obj = {
+      yaris,
+      Car,
+    }
+
+    const str = serialize(obj)
+    console.log(str)
+    const res = looseJsonParse(str)
+    assert.notStrictEqual(res.yaris.age, null)
+    const age = res.yaris.age()
+    console.log("res.yaris.age(): ", age)
+    assert.notStrictEqual(age, null)
+
+    test('Car object', obj, "Yaris", null, null, false)
+  })
+
 })
