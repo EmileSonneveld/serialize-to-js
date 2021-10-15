@@ -29,7 +29,7 @@ function unsafeString(str) {
 
 function quote(str, opts) {
   const fn = opts.unsafe ? unsafeString : safeString
-  return str ? `"${fn(str)}"` : ''
+  return str ? `"${fn(str)}"` : '""'
 }
 
 function saferFunctionString(str, opts) {

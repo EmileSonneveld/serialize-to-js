@@ -1,109 +1,118 @@
 # serialize-to-js
 
-> serialize objects to javascript
-
 [![NPM version](https://badge.fury.io/js/serialize-to-js.svg)](https://www.npmjs.com/package/serialize-to-js/)
 [![Build Status](https://secure.travis-ci.org/commenthol/serialize-to-js.svg?branch=master)](https://travis-ci.org/commenthol/serialize-to-js)
 
-Serialize objects into a string while checking circular structures and respecting references.
+Serialize objects into a string while keeping circular structures and references.
+This string happens to be legimite JavaScript and can be parsed back with `eval()`.
 
-The following Objects are supported
+Like JSON, but supporting Sets, Maps, Dates, circular references and more.
 
-- String
-- Number
-- Boolean
-- Object
-- Array
-- RegExp
-- Error
-- Date
-- Buffer
-- Int8Array, Uint8Array, Uint8ClampedArray
-- Int16Array, Uint16Array
-- Int32Array, Uint32Array, Float32Array
-- Float64Array
-- Set
-- Map
+```js
+const str = serialize(source, opts={})
+eval(str) // gives back the object!
+```
 
-## Table of Contents
+serializes an object to JavaScript
 
-<!-- !toc (minlevel=2 omit="Table of Contents") -->
-
-* [Methods](#methods)
-  * [serialize](#serialize)
-* [Contribution and License Agreement](#contribution-and-license-agreement)
-* [License](#license)
-
-<!-- toc! -->
-
-## Methods
-
-### serialize
-
-`serialize(source, opts, opts.ignoreCircular, opts.reference)`
-
-serializes an object to javascript
-
-#### Example - serializing regex, date, buffer, ...
+#### Example
 
 ```js
 const serialize = require('serialize-to-js')
+const reusedObject = { key: 'value' }
+reusedObject.cyclicSelf = reusedObject
 const obj = {
-  str: '<script>var a = 0 > 1</script>',
+  str: 'hello world!',
   num: 3.1415,
   bool: true,
   nil: null,
   undef: undefined,
-  obj: { foo: 'bar' },
-  arr: [1, '2'],
+  obj: { foo: 'bar', reusedObject },
+  arr: [1, '2', reusedObject],
   regexp: /^test?$/,
   date: new Date(),
-  buffer: new Buffer('data'),
+  buffer: new Uint8Array([1, 2, 3]),
   set: new Set([1, 2, 3]),
-  map: new Map([['a', 1],['b', 2]])
+  map: new Map([['a', 1], ['b', reusedObject]])
 }
 console.log(serialize(obj))
-//> '{str: "\u003Cscript\u003Evar a = 0 \u003E 1\u003C\u002Fscript\u003E",
-//>   num: 3.1415, bool: true, nil: null, undef: undefined,
-//>   obj: {foo: "bar"}, arr: [1, "2"], regexp: new RegExp("^test?$", ""),
-//>   date: new Date("2019-12-29T10:37:36.613Z"),
-//>   buffer: Buffer.from("ZGF0YQ==", "base64"), set: new Set([1, 2, 3]),
-//>   map: new Map([["a", 1], ["b", 2]])}'
 ```
 
-#### Example - serializing while respecting references
+This gives the following string as result:
 
-```js
-var serialize = require('serialize-to-js')
-var obj = { object: { regexp: /^test?$/ } };
-obj.reference = obj.object;
-var opts = { reference: true };
-console.log(serialize(obj, opts));
-//> {object: {regexp: /^test?$/}}
-console.log(opts.references);
-//> [ [ '.reference', '.object' ] ]
+```js     
+(function () {
+  const root = {
+    str: "hello world!",
+    num: 3.1415,
+    bool: true,
+    nil: null,
+    undef: undefined,
+    obj: {
+      foo: "bar",
+      reusedObject: {
+        key: "value",
+        cyclicSelf: undefined /* Linked later*/
+      }
+    },
+    arr: [
+      1,
+      "2",
+      undefined /* Linked later*/
+    ],
+    regexp: new RegExp("^test?$", ""),
+    date: new Date("2021-10-15T19:50:12.958Z"),
+    buffer: undefined /*  Error: Buffer is not defined. Breadcrumb: root.buffer */,
+    set: new Set([
+      1,
+      2,
+      3
+    ]),
+    map: new Map([
+      ["a", 1],
+      ["b", undefined /* Linked later*/]
+    ])
+  };
+  root.obj.reusedObject.cyclicSelf = root.obj.reusedObject;
+  root.arr["2"] = root.obj.reusedObject;
+  root.map.set("b", root.obj.reusedObject);
+  return root;
+})()
 ```
+
+You can parse this results with `eval(str)` to get back a real JS object.
+
+Take a look to [the tests](test/index.test.js.md) for more examples.
 
 **Parameters**
 
 **source**: `Object | Array | function | Any`, source to serialize  
 **opts**: `Object`, options  
-**opts.ignoreCircular**: `Boolean`, ignore circular objects  
-**opts.reference**: `Boolean`, reference instead of a copy (requires post-processing of opts.references)  
 **opts.unsafe**: `Boolean`, do not escape chars `<>/`  
+**opts.ignoreFunctions**: `Boolean`, do not serialise functions, as they do not capture the scope correctly anyway. 
+**opts.objectsToLinkTo**: `Array`, what objects can be linked to instead of serialised
+**opts.maxDepth**: `Number`, how deep may the object graph be searched
 **Returns**: `String`, serialized representation of `source`
 
+## Use cases
+
+- Dump the whole application state with `serialise(window)`. You can Ctrl-F trough the generated code to find property
+  names and values.
+- Make a dump before and after you pressed a button. You can diff the two dumps to see what changed.
+- Serialise your application state as a save file.
+- Check if your application has no unexpected duplicated objects. For example, when a bug lets an object be passed by
+  reference instead of a copy. Those instances will clearly be visible at the end of the dump.
 
 ## Contribution and License Agreement
 
-If you contribute code to this project, you are implicitly allowing your
-code to be distributed under the MIT license. You are also implicitly
-verifying that all code is your original work or correctly attributed
-with the source of its origin and licence.
+If you contribute code to this project, you are implicitly allowing your code to be distributed under the MIT license.
+You are also implicitly verifying that all code is your original work or correctly attributed with the source of its
+origin and licence.
 
 ## License
 
 Copyright (c) 2016- commenthol (MIT License)
+Copyright (c) 2021- EmileSonneveld (MIT License)
 
 See [LICENSE][] for more info.
 

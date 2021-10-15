@@ -13,15 +13,17 @@ const Ref = require('./internal/reference')
  *
  * @param {Object|Array|Function|*} src - source to serialize
  * @param {?Object} [opts] - options
- * @param {Boolean} opts.ignoreCircular - ignore circular objects
- * @param {Boolean} opts.reference - reference instead of a copy (requires post-processing of opts.references)
  * @param {Boolean} opts.unsafe - do not escape chars `<>/`
  * @param {Boolean} opts.ignoreFunctions
  * @param {Boolean} opts.objectsToLinkTo
+ * @param {Boolean} opts.maxDepth
  * @return {String} serialized representation of `source`
  */
 function serialize(src, opts = null) {
-  opts = opts || {}
+  opts = {
+    maxDepth: Infinity,
+    ...opts,
+  }
 
   const refs = new Ref([], opts)
 
@@ -34,7 +36,11 @@ function serialize(src, opts = null) {
     let codeMain = ""
     let codeAfter = ""
     if (absorbPhase && source === src) {
-      return
+      return { codeBefore, codeMain, codeAfter }
+    }
+    if (indent > opts.maxDepth) {
+      codeMain += "undefined /* >maxDepth */"
+      return { codeBefore, codeMain, codeAfter }
     }
 
     function appendDirtyProps(source) {
@@ -302,18 +308,14 @@ function serialize(src, opts = null) {
                   } else {
                     refs.breadcrumbs.push(`[${utils.quote(key, opts)}]`)
                   }
-                  try {
-                    if (refs.isVisited(source[key])) {
-                      tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Linked later*/`)
-                      codeAfter += `  ${refs.join()} = ${refs.getStatementForObject(source[key])};\n`
-                    } else {
-                      const ret = stringify(source[key], indent + 1)
-                      codeBefore += ret.codeBefore
-                      tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: ${ret.codeMain}`)
-                      codeAfter += ret.codeAfter
-                    }
-                  } catch (error) {
-                    tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}:${errorToValue(error)}`)
+                  if (refs.isVisited(source[key])) {
+                    tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Linked later*/`)
+                    codeAfter += `  ${refs.join()} = ${refs.getStatementForObject(source[key])};\n`
+                  } else {
+                    const ret = stringify(source[key], indent + 1)
+                    codeBefore += ret.codeBefore
+                    tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: ${ret.codeMain}`)
+                    codeAfter += ret.codeAfter
                   }
                   refs.breadcrumbs.pop()
                 }
@@ -326,7 +328,8 @@ function serialize(src, opts = null) {
             codeMain += "{}"
           }
 
-          if (source.__proto__ !== ({}).__proto__) {
+          // Potential: DOMException: Blocked a frame with origin "https://..." from accessing a cross-origin frame.
+          if (source.__proto__ && source.__proto__ !== ({}).__proto__ && source.__proto__.constructor) {
             if (!refs.isVisited(source.__proto__.constructor)) {
               objCounter += 1
               const safeKey = "obj" + objCounter
@@ -338,7 +341,12 @@ function serialize(src, opts = null) {
               codeAfter += ret.codeAfter
               refs.breadcrumbs = breadcrumbsOrig
             }
-            codeAfter += `  ${refs.join()}.__proto__ = ${refs.getStatementForObject(source.__proto__)};\n`
+            if (refs.isVisited(source.__proto__)) {
+              // TODO: This is delicate and can throw bad errors
+              codeAfter += `  ${refs.join()}.__proto__ = ${refs.getStatementForObject(source.__proto__)};\n`
+            } else {
+              codeAfter += `  /* ${refs.join()}.__proto__ = not supported yet */\n`
+            }
           }
           break
         }
@@ -376,7 +384,8 @@ function serialize(src, opts = null) {
       if (refs.unmarkVisited(source)) {
         console.warn('Dirty error.')
       }
-      codeMain = errorToValue(error)
+      // TODO: codeMain could have /**/ comments in it already. Might need to encode that
+      codeMain = `undefined /* ${codeMain} ${errorToValue(error)} */`
     }
     return { codeBefore, codeMain, codeAfter }
   }
@@ -386,7 +395,7 @@ function serialize(src, opts = null) {
     if (message.indexOf('\n') !== -1) {
       message = error.message.substring(0, error.message.indexOf('\\n'))
     }
-    return `undefined /* Error: ${message}. Breadcrumb: ${refs.join()} */`
+    return `Error: ${message}. Breadcrumb: ${refs.join()}`
   }
 
   // First absorb all objects to link to
@@ -414,8 +423,12 @@ ${ret.codeAfter}
 })()`
 }
 
-function slog(...args) {
-  console.log(serialize(...args))
+function slog(src, opts = null) {
+  opts = {
+    ignoreFunctions: true,
+    ...opts,
+  }
+  console.log(serialize(src, opts))
 }
 
 module.exports = {

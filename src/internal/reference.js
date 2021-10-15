@@ -7,7 +7,7 @@
 
 const utils = require('./utils')
 
-const KEY = /^[a-zA-Z$_][a-zA-Z$_0-9]*$/
+const safeKeyRegex = /^[a-zA-Z$_][a-zA-Z$_0-9]*$/
 
 /**
  * handle references
@@ -33,7 +33,7 @@ function Ref(references, opts) {
 }
 
 Ref.isSafeKey = function (key) {
-  return KEY.test(key)
+  return (key !== "") && safeKeyRegex.test(key)
 }
 
 /**
@@ -44,7 +44,7 @@ Ref.isSafeKey = function (key) {
  * @return {String} wrapped key in quotes if necessary
  */
 Ref.wrapkey = function (key, opts) {
-  return (KEY.test(key) ? key : utils.quote(key, opts))
+  return Ref.isSafeKey(key) ? key : utils.quote(key, opts)
 }
 
 Ref.prototype = {
@@ -53,7 +53,7 @@ Ref.prototype = {
   },
 
   unmarkVisited(object) {
-    this.visitedRefs.delete(object)
+    return this.visitedRefs.delete(object)
   },
 
   isVisited(value) {

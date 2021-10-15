@@ -101,6 +101,7 @@ describe('safe mode', function () {
   test('string with all unsafe characters', '<>\\\\ \t\n/', '"\\u003C\\u003E\\u005C\\u005C \\t\\n\\u002F"')
   test('empty object', {}, '{}')
   test('object simple', { a: 1, b: 2 }, '{a: 1, b: 2}')
+  test('object with empty string property', { a: 1, "": 2 }, '2')
   test('object with backslash', { backslash: '\\' }, '"\\u005C"')
   test('object of primitives',
     { one: true, two: false, 'thr-ee': undefined, four: 1, 5: 3.1415, six: -17, 'se ven': 'string' },
@@ -269,6 +270,15 @@ describe('others', function () {
     assert.deepStrictEqual(looseJsonParse(res), looseJsonParse(exp))
   })
 
+  {
+    const smallObj = { key: "value" }
+    const obj = {
+      a: smallObj,
+      "": smallObj,
+    }
+    test('converting an object with empty property name', obj)
+  }
+
   const r = {
     one: true,
     'thr-ee': undefined,
@@ -309,7 +319,7 @@ describe('others', function () {
   })
   it('correctly serializes regular expressions', function () {
     for (const re of [/\//, /[</script><script>alert('xss')//]/i, /abc/, /[< /script>]/]) {
-      const re2 = eval(serialize(re)) // eslint-disable-line no-eval
+      const re2 = looseJsonParse(serialize(re))
       assert.strictEqual(re.source, re2.source)
       assert.strictEqual(re.flags, re2.flags)
     }
@@ -341,7 +351,7 @@ describe('others', function () {
   }
 
   it('shall unmarshal to Invalid Date', function () {
-    const res = eval(serialize(new Date('Invalid'))) // eslint-disable-line no-eval
+    const res = looseJsonParse(serialize(new Date('Invalid')))
     assert.strictEqual(res.toString(), new Date('Invalid').toString())
   })
 
@@ -518,7 +528,7 @@ describe('others', function () {
       arr: [1, '2'],
       regexp: /^test?$/,
       date: new Date(),
-      buffer: new Buffer.from('data'), // DeprecationWarning: Buffer() is deprecated due to security and usability issues. Please use the Buffer.alloc(), Buffer.allocUnsafe(), or Buffer.from() methods instead.
+      buffer: new Uint8Array([1,2,3]),
       set: new Set([1, 2, 3]),
       map: new Map([['a', 1], ['b', 2]])
     }
@@ -603,3 +613,33 @@ describe("object test", () => {
   })
 
 })
+
+/*
+TODO: Should make selenium test to test iframe permissions.
+describe("iframe test", () => {
+  it("acces child iframe", () => {
+
+    const { createServer } = require("http")
+    const { createReadStream } = require("fs")
+    const path = require('path')
+
+    function createFileServer(root = ".", port = 8080) {
+      const server = createServer()
+      server.on("request", (request, response) => {
+        try {
+          createReadStream(path.join(root, request.url)).pipe(response)
+        } catch (err) {
+          response.writeHead(500, { 'Content-Type': 'text/plain' })
+          response.write(err)
+          response.end()
+        }
+      })
+      server.listen(port)
+      return server
+    }
+
+    createFileServer(".", 44444)
+    createFileServer(".", 55555)
+  })
+})
+*/
