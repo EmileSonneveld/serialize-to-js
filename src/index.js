@@ -1,5 +1,6 @@
 /*
  * @copyright 2016- commenthol
+ * @copyright 2021- EmileSonneveld
  * @license MIT
  */
 
@@ -9,7 +10,7 @@ const utils = require('./internal/utils')
 const Ref = require('./internal/reference')
 
 /**
- * serializes an object to javascript
+ * serializes an object to javascript code
  *
  * @param {Object|Array|Function|*} src - source to serialize
  * @param {?Object} [opts] - options
@@ -22,6 +23,7 @@ const Ref = require('./internal/reference')
 function serialize(src, opts = null) {
   opts = {
     maxDepth: Infinity,
+    evaluateSimpleGetters: true,
     ...opts,
   }
 
@@ -78,13 +80,9 @@ function serialize(src, opts = null) {
     }
 
     try {
-      // if (utils.isProxy(source) === true) {
-      //   return `undefined /* Proxy not supported*/`
-      // }
       const type = utils.toType(source)
 
       // https://levelup.gitconnected.com/pass-by-value-vs-pass-by-reference-in-javascript-31e79afe850a
-      // TODO: consider almost everything 'object'. Search for Array, Error, Date, ... in proto
       // TODO: Save getters and setters as functions
       //       make it an option to get the value behind getters.
       //       Determine safty by checking the function content on '=' and "(" and if it starts with "return"
@@ -109,10 +107,19 @@ function serialize(src, opts = null) {
             codeMain += tmp
             // append function to es6 function within obj
             // codeMain += /^\s*((async)?\s?function|\(?[^)]*?\)?\s*=>)/m.test(tmp) ? tmp : 'function ' + tmp
-            refs.breadcrumbs.push(".prototype")
-            refs.markAsVisited(source.prototype) // TODO: test with function constructors (class is already tested)
-            refs.breadcrumbs.pop()
+            if (source.prototype) {
+              refs.breadcrumbs.push(".prototype")
+              refs.markAsVisited(source.prototype) // TODO: test with function constructors (class is already tested)
+              refs.breadcrumbs.pop()
+            }
           }
+          if (opts.evaluateSimpleGetters && utils.isSimpleGetter(source)) {
+            codeMain += `/* val: ${source()}*/`
+          }
+          // TODO, can also have dirty props!
+          // For example the cancel property of the lodash throttle function
+          // f = _.throttle((a)=>console.log(a), 2)
+          // f("a");f("a");f("a");f("a"); f.cancel()
           break
         }
         case 'RegExp':
@@ -291,9 +298,6 @@ function serialize(src, opts = null) {
         case 'Object': {
           refs.markAsVisited(source)
           // TODO: Test with vtkActor
-          // TODO: When serialising 'window.store' in complex page, some vue components fail:
-          // root._vm._renderProxy._watchers["0"].deps["0"].subs["2"] = root._vm._renderProxy._watchers["0"].deps["0"].subs["0"].deps["1"].subs["1"].deps["2"].subs["1"]
-          // TypeError: Cannot read property 'deps' of undefined
           if (true) {
             const tmp = []
             for (const key in source) {
@@ -363,29 +367,22 @@ function serialize(src, opts = null) {
           refs.markAsVisited(source)
           const str = String(source)
           const symbolName = str.substring(7, str.length - 1)
-          // This will never be the same as the original.
-          // Can not have dirty props
+          // Symbol can not have dirty props
           codeMain += `Symbol(${utils.quote(symbolName, opts)})`
           break
-        // case 'HTMLDocument':
-        // case 'HTMLBodyElement':
-        // Low prio: serialise HTML elements
-        //   codeMain += `undefined /* not supported: ${source}*/`
-        //   break
         default: {
           // One can find many exotic object types by running: console.log(serialize(window))
           console.warn(`Unknown type: ${type} source: ${source}`)
-          // throw Error('Unknown type: ' + type)
-          codeMain += `undefined /* not supported: ${source}*/`
+          codeMain += `undefined /* not supported: ${source.replaceAll('*/', '* /')}*/`
           break
         }
       }
     } catch (error) {
       if (refs.unmarkVisited(source)) {
-        console.warn('Dirty error.')
+        console.warn('Dirty error.', error.message)
       }
-      // TODO: codeMain could have /**/ comments in it already. Might need to encode that
-      codeMain = `undefined /* ${codeMain} ${errorToValue(error)} */`
+      // codeMain can have /**/ comments in it already.
+      codeMain = `undefined /* ${codeMain.replaceAll('*/', '* /')} ${errorToValue(error)} */`
     }
     return { codeBefore, codeMain, codeAfter }
   }
@@ -409,12 +406,15 @@ function serialize(src, opts = null) {
   }
 
   // Now reset, and go over the real object
-  // console.log('visitedRefs', refs.visitedRefs)
   objCounter = 0
   refs.breadcrumbs = ['root']
   absorbPhase = false
 
   const ret = stringify(src, 2)
+  if (ret.codeBefore === '' && ret.codeAfter === '') {
+    // TODO, unindent by 1
+    return ret.codeMain
+  }
   return `(function(){
 ${ret.codeBefore}
   const root = ${ret.codeMain};
@@ -439,5 +439,4 @@ module.exports = {
 if (typeof window !== "undefined") {
   window.serialize = serialize
   window.slog = slog
-  window.utils = utils
 }

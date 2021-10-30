@@ -4,7 +4,7 @@ manual_tests
 
 Test too hard to automate can be here.
 
-Open Chrome Open https://twitter.com/
+Open Chrome Open https://en.wikipedia.org/wiki/Main_Page
 Paste the code from `main.js` in the console. Paste the following in the console. Test if the logged code is valid
 
 ```JS
@@ -32,7 +32,7 @@ Paste the code from `main.js` in the console. Paste the following in the console
 ```
 
 Do the same for https://www.facebook.com/
-https://en.wikipedia.org/wiki/Main_Page
+https://twitter.com/
 http://localhost:44444/test/iframe_holder.html
 
 And repeat everything in Firefox too

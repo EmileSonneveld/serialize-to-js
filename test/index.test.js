@@ -2,6 +2,8 @@
 
 'use strict'
 
+// TODO: test against this suite too: https://github.com/yahoo/serialize-javascript/blob/main/test/unit/serialize.js
+
 const assert = require('assert')
 const src = require('../src')
 const serialize = src.serialize
@@ -518,22 +520,25 @@ describe('others', function () {
   }
 
   {
+    const reusedObject = { key: 'value' }
+    reusedObject.cyclicSelf = reusedObject
     const obj = {
-      str: '<script>var a = 0 > 1</script>',
+      str: 'hello world!',
       num: 3.1415,
       bool: true,
       nil: null,
       undef: undefined,
-      obj: { foo: 'bar' },
-      arr: [1, '2'],
+      obj: { foo: 'bar', reusedObject },
+      arr: [1, '2', reusedObject],
       regexp: /^test?$/,
       date: new Date(),
-      buffer: new Uint8Array([1,2,3]),
+      buffer: new Uint8Array([1, 2, 3]),
       set: new Set([1, 2, 3]),
-      map: new Map([['a', 1], ['b', 2]])
+      map: new Map([['a', 1], ['b', reusedObject]])
     }
     test('readme example', obj)
   }
+
 
   {
     const obj = {
@@ -612,6 +617,34 @@ describe("object test", () => {
     test('Car object', obj, "Yaris", null, null, false)
   })
 
+})
+
+describe("getter and setter", () => {
+  const utils = require('../src/internal/utils')
+
+  it("isSimpleGetter", () => {
+    assert.ok(utils.isSimpleGetter(function () {
+      return [].concat(model[field])
+    }, 'getFocalPoint'))
+
+    assert.ok(utils.isSimpleGetter(function () {
+      return [].concat(model[field])
+    }))
+
+    assert.strictEqual(utils.isSimpleGetter(function () {
+        if (model.deleted) {
+          vtkErrorMacro('instance deleted - cannot call any method')
+          return false
+        }
+
+        for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+          args[_key2] = arguments[_key2]
+        }
+        // Skipped some content here
+
+        return true
+      }, 'setClippingRange '), false)
+  })
 })
 
 /*

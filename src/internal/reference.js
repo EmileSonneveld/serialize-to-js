@@ -18,18 +18,19 @@ const safeKeyRegex = /^[a-zA-Z$_][a-zA-Z$_0-9]*$/
  */
 function Ref(references, opts) {
   this.opts = opts || {}
+  this.breadcrumbs = null
+  const self = this
 
   // https://www.measurethat.net/Benchmarks/ShowResult/224868
   this.visitedRefs = new Map()
   const setOrig = this.visitedRefs.set
   this.visitedRefs.set = function (key, val) {
     if (this.has(key)) {
-      throw Error(`this object was already visited! old:${this.get(key)} new: ${breadcrumbs.join('')}`)
+      throw Error(`this object was already visited! old:${this.get(key)} new: ${self.breadcrumbs.join('')}`)
     }
     setOrig.call(this, key, val)
   }
 
-  this.breadcrumbs = null
 }
 
 Ref.isSafeKey = function (key) {

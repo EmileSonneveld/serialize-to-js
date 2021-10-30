@@ -113,6 +113,39 @@ function isProxy(obj) {
   return _shouldBeCloneable && !_isCloneable;
 }
 
+
+/**
+ * a function that passes this test has a low chance of changing the state
+ */
+function isSimpleGetter(func, propName) {
+  let name = propName
+  if (func.name != null && func.name !== '') {
+    name = func.name
+  }
+  if ((func + '').indexOf('=') !== -1) {
+    return false
+  }
+  if ((func + '').indexOf('this') !== -1
+  || (func + '').indexOf('arguments') !== -1) {
+    // It is possible to assign 'this' with func.apply(thisObj, args)
+    // But not sure if it is possible to find the correct this.
+    return false
+  }
+  if ((func + '').match(/^function\s*\(\)\s*{\s*return/)) {
+    // first statement is return statement and not arguments needed
+    return true
+  }
+  if (name == null) {
+    return false
+  }
+  if (name.toLowerCase().indexOf('get') === 0) {
+    if ((func + '').indexOf('return') !== -1) {
+      return true
+    }
+  }
+  return false
+}
+
 module.exports = {
   safeString,
   unsafeString,
@@ -125,4 +158,5 @@ module.exports = {
   shouldBeCloneable,
   isCloneable,
   isProxy,
+  isSimpleGetter,
 }
