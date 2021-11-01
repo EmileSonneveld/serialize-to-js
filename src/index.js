@@ -295,6 +295,7 @@ function serialize(src, opts = null) {
         }
         case 'Window':
         case 'global':
+        case 'console':
         case 'Object': {
           refs.markAsVisited(source)
           // TODO: Test with vtkActor

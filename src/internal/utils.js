@@ -146,6 +146,21 @@ function isSimpleGetter(func, propName) {
   return false
 }
 
+if (!String.prototype.replaceAll) {
+  String.prototype.replaceAll = function (str, newStr) {
+    console.log(`replaceAll('${str}', '${newStr}')`)
+    for (let i = 0; i < 10; i += 1) {
+      const str2 = str.replace(newStr)
+      if (str2 === str) {
+        str = str2
+        break
+      }
+      str = str2
+      console.warn('Too mush things to replace')
+    }
+  };
+}
+
 module.exports = {
   safeString,
   unsafeString,

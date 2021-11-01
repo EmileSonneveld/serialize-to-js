@@ -418,29 +418,51 @@ describe('others', function () {
 
   {
     const obj = {
-      nativeLog: console.log,
+      nativeLogProperty: console.log,
+      randomKey: 'randomValue',
     }
-    test('global ref console', obj, null, null, { console })
+    test(
+        'global console.log copy',
+        obj,
+        'function',
+        null,
+        {console},
+        false,
+    )
   }
 
   {
-    const apple = { appleKey: "appleValue" }
-    const orange = { orangeKey: "orangeValue" }
-
-    global.linkingToThis = {
-      appleKey: apple,
-      mapKey: new Map([
-        ['orangeKey', orange],
-      ]),
-    }
     const obj = {
-      nativeLog: console.log,
-      rest: {
-        k1: global.linkingToThis.appleKey,
-        k2: global.linkingToThis.mapKey.get('orangeKey'),
-      }
+      nativeLogProperty: console.log,
+      randomKey: 'randomValue',
     }
-    test('global ref global', obj, null, null, { globalThis, console })
+    test(
+        'global console.log ref',
+        obj,
+        'console.log',
+        null,
+        {console, globalThis},
+        false
+    )
+  }
+
+  {
+    const apple = {appleKey: "appleValue"}
+    globalThis.orangePropertyNameInGlobal = {orangeKey: "orangeValue"}
+
+    const obj = {
+      propertyThatLinksToGlobal: globalThis.orangePropertyNameInGlobal,
+      apple,
+    }
+
+    test(
+        'global ref globalThis',
+        obj,
+        'orangePropertyNameInGlobal',
+        null,
+        {globalThis},
+        false
+    )
   }
 
   {
