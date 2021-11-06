@@ -10,7 +10,7 @@ Paste the code from `main.js` in the console. Paste the following in the console
 ```JS
 {
   const opts = {
-    ignoreFunctions: true,
+    ignoreFunction: true,
     maxDepth: 50,
   }
   const test_property = "unique string here" + Math.random()

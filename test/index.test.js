@@ -30,6 +30,10 @@ function looseJsonParse(obj) {
   return Function('"use strict";return (' + obj + ')')()
 }
 
+function strip(str) {
+  return str.replace(/[\s;]/g, '');
+}
+
 function test(name, inp, expSubstring, unsafe, objectsToLinkTo, deepStrictEqual = true) {
   it(name, function () {
 
@@ -45,10 +49,10 @@ function test(name, inp, expSubstring, unsafe, objectsToLinkTo, deepStrictEqual 
     console.log("res:")
     console.log(res)
     if (expSubstring) {
-      expSubstring = expSubstring.replace(/[\s;]/g, '')
+      expSubstring = strip(expSubstring)
       console.log("exp:")
       console.log(expSubstring)
-      const strCopy = str.replace(/[\s;]/g, '')
+      const strCopy = strip(str)
       console.log("strCopy:")
       console.log(strCopy)
       assert.ok(strCopy.indexOf(expSubstring) !== -1)
@@ -102,7 +106,7 @@ describe('safe mode', function () {
   )
   test('string with all unsafe characters', '<>\\\\ \t\n/', '"\\u003C\\u003E\\u005C\\u005C \\t\\n\\u002F"')
   test('empty object', {}, '{}')
-  test('object simple', { a: 1, b: 2 }, '{a: 1, b: 2}')
+  test('object simple', { a: 1, b: 2 }, strip('{a: 1, b: 2}'))
   test('object with empty string property', { a: 1, "": 2 }, '2')
   test('object with backslash', { backslash: '\\' }, '"\\u005C"')
   test('object of primitives',

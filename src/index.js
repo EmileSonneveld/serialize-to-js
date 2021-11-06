@@ -15,7 +15,7 @@ const Ref = require('./internal/reference')
  * @param {Object|Array|Function|*} src - source to serialize
  * @param {?Object} [opts] - options
  * @param {Boolean} opts.unsafe - do not escape chars `<>/`
- * @param {Boolean} opts.ignoreFunctions
+ * @param {Boolean} opts.ignoreFunction
  * @param {Boolean} opts.objectsToLinkTo
  * @param {Boolean} opts.maxDepth
  * @return {String} serialized representation of `source`
@@ -24,8 +24,17 @@ function serialize(src, opts = null) {
   opts = {
     maxDepth: Infinity,
     evaluateSimpleGetters: true,
+    unsafe: false,
+    space: '  ',
+    alwaysQuote: false,
     ...opts,
   }
+  if (typeof opts.space === 'number') {
+    opts.space = ' '.repeat(opts.space)
+  }else if (!opts.space){
+    opts.space = ''
+  }
+  const newline = opts.space ? "\n" : ""
 
   const refs = new Ref([], opts)
 
@@ -96,14 +105,24 @@ function serialize(src, opts = null) {
           codeMain += utils.quote(source, opts) || '""'
           break
         case 'AsyncFunction':
+        case 'GeneratorFunction':
         case 'Function': { // TODO: Assign the name of the function (`const someName = ()=>{}` can do that)
           refs.markAsVisited(source)
-          if (opts.ignoreFunctions === true) {
-            codeMain += `undefined /* ignoreFunctions */`
+          if (opts.ignoreFunction === true) {
+            codeMain += `undefined /* ignoreFunction */`
           } else {
             let tmp = source.toString()
             tmp = opts.unsafe ? tmp : utils.saferFunctionString(tmp, opts)
             tmp = tmp.replace('[native code]', '/*[native code] Avoid this by allowing to link to globalThis object*/')
+            if (tmp.indexOf('function') !== 0) {
+              const firstBrace = tmp.indexOf('(')
+              if (firstBrace !== 0 && firstBrace !== -1) {
+                const firstSpace = tmp.indexOf(' ')
+                if(firstBrace < firstSpace) {
+                  tmp = 'function ' + tmp
+                }
+              }
+            }
             codeMain += tmp
             // append function to es6 function within obj
             // codeMain += /^\s*((async)?\s?function|\(?[^)]*?\)?\s*=>)/m.test(tmp) ? tmp : 'function ' + tmp
@@ -147,9 +166,9 @@ function serialize(src, opts = null) {
           for (const key in source) {
             if (Object.prototype.hasOwnProperty.call(source, key)) {
               if (Object.getOwnPropertyDescriptor(source, key).get) {
-                tmp.push(`${"  ".repeat(indent)}undefined /* Getters not supported*/`) // They could be statefull. try-catch might be not enough
+                tmp.push(`${opts.space.repeat(indent)}undefined /* Getters not supported*/`) // They could be statefull. try-catch might be not enough
               } else if (Object.getOwnPropertyDescriptor(source, key).set) {
-                tmp.push(`${"  ".repeat(indent)}undefined /* Setters not supported*/`) // They could be statefull. try-catch might be not enough
+                tmp.push(`${opts.space.repeat(indent)}undefined /* Setters not supported*/`) // They could be statefull. try-catch might be not enough
               } else {
                 if (Ref.isSafeKey(key)) {
                   refs.breadcrumbs.push(`.${key}`)
@@ -158,7 +177,7 @@ function serialize(src, opts = null) {
                 }
                 if (refs.isVisited(source[key]) || mutationsFromNowOn || String(counter) !== String(key)) {
                   if (refs.isVisited(source[key])) {
-                    tmp.push(`${"  ".repeat(indent)}undefined /* Linked later*/`)
+                    tmp.push(`${opts.space.repeat(indent)}undefined /* Linked later*/`)
                     codeAfter += `  ${refs.join()} = ${refs.getStatementForObject(source[key])};\n`
                   } else {
                     // TODO: keep adding undefined for later elements that are still on the good count.
@@ -172,14 +191,14 @@ function serialize(src, opts = null) {
                   const ret = stringify(source[key], indent + 1)
                   codeBefore += ret.codeBefore
                   codeAfter += ret.codeAfter
-                  tmp.push(`${"  ".repeat(indent)}${ret.codeMain}`)
+                  tmp.push(`${opts.space.repeat(indent)}${ret.codeMain}`)
                 }
                 refs.breadcrumbs.pop()
               }
               counter += 1
             }
           }
-          codeMain += `[\n${tmp.join(',\n')}\n${"  ".repeat(indent - 1)}]`
+          codeMain += `[${newline}${tmp.join(`,${newline}`)}${newline}${opts.space.repeat(indent - 1)}]`
           break
         }
         case 'Int8Array':
@@ -231,13 +250,13 @@ function serialize(src, opts = null) {
             if (mutationsFromNowOn) {
               codeAfter += `  ${refs.join()}.add(${safeItem});\n`
             } else {
-              tmp.push("  ".repeat(indent) + safeItem)
+              tmp.push(opts.space.repeat(indent) + safeItem)
             }
           })
 
           appendDirtyProps(source)
 
-          codeMain += `new ${type}([\n${tmp.join(',\n')}\n${"  ".repeat(indent - 1)}])`
+          codeMain += `new ${type}([\n${tmp.join(',\n')}\n${opts.space.repeat(indent - 1)}])`
           break
         }
         case 'Map': {
@@ -271,7 +290,7 @@ function serialize(src, opts = null) {
               mutationsFromNowOn = true
 
               if (refs.isVisited(mapValue)) {
-                tmp.push(`${"  ".repeat(indent)}[${safeKey}, undefined /* Linked later*/]`)
+                tmp.push(`${opts.space.repeat(indent)}[${safeKey}, undefined /* Linked later*/]`)
                 codeAfter += `  ${thisBreadcrumb}.set(${safeKey}, ${refs.getStatementForObject(mapValue)});\n`
               } else {
                 const ret = stringify(mapValue, indent + 1)
@@ -282,7 +301,7 @@ function serialize(src, opts = null) {
             } else {
               const ret = stringify(mapValue, indent + 1)
               codeBefore += ret.codeBefore
-              tmp.push("  ".repeat(indent) + `[${safeKey}, ${ret.codeMain}]`)
+              tmp.push(opts.space.repeat(indent) + `[${safeKey}, ${ret.codeMain}]`)
               codeAfter += ret.codeAfter
             }
             refs.breadcrumbs.pop()
@@ -290,7 +309,7 @@ function serialize(src, opts = null) {
 
           appendDirtyProps(source)
 
-          codeMain += `new ${type}([\n${tmp.join(',\n')}\n${"  ".repeat(indent - 1)}])`
+          codeMain += `new ${type}([${newline}${tmp.join(`,${newline}`)}${newline}${opts.space.repeat(indent - 1)}])`
           break
         }
         case 'Window':
@@ -304,9 +323,9 @@ function serialize(src, opts = null) {
             for (const key in source) {
               if (Object.prototype.hasOwnProperty.call(source, key)) {
                 if (Object.getOwnPropertyDescriptor(source, key).get) {
-                  tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Getters not supported*/`) // They could be statefull. try-catch might be not enough
+                  tmp.push(`${opts.space.repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Getters not supported*/`) // They could be statefull. try-catch might be not enough
                 } else if (Object.getOwnPropertyDescriptor(source, key).set) {
-                  tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Setters not supported*/`) // They could be statefull. try-catch might be not enough
+                  tmp.push(`${opts.space.repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Setters not supported*/`) // They could be statefull. try-catch might be not enough
                 } else {
                   if (Ref.isSafeKey(key)) {
                     refs.breadcrumbs.push(`.${key}`)
@@ -314,19 +333,19 @@ function serialize(src, opts = null) {
                     refs.breadcrumbs.push(`[${utils.quote(key, opts)}]`)
                   }
                   if (refs.isVisited(source[key])) {
-                    tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Linked later*/`)
+                    tmp.push(`${opts.space.repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Linked later*/`)
                     codeAfter += `  ${refs.join()} = ${refs.getStatementForObject(source[key])};\n`
                   } else {
                     const ret = stringify(source[key], indent + 1)
                     codeBefore += ret.codeBefore
-                    tmp.push(`${"  ".repeat(indent) + Ref.wrapkey(key, opts)}: ${ret.codeMain}`)
+                    tmp.push(`${opts.space.repeat(indent) + Ref.wrapkey(key, opts)}:${ret.codeMain}`)
                     codeAfter += ret.codeAfter
                   }
                   refs.breadcrumbs.pop()
                 }
               }
             }
-            codeMain += `{\n${tmp.join(',\n')}\n${"  ".repeat(indent - 1)}}`
+            codeMain += `{${newline}${tmp.join(`,${newline}`)}${newline}${opts.space.repeat(indent - 1)}}`
           } else {
             // This option would be more compatible with python
             appendDirtyProps(source)
@@ -364,6 +383,12 @@ function serialize(src, opts = null) {
             codeMain += '' + source
           }
           break
+        case 'URL':
+          codeMain += `new URL(${utils.quote(source.toString(), opts)})`
+          break
+        case 'BigInt':
+          codeMain += `BigInt(${utils.quote(source.toString(), opts)})`
+          break
         case 'Symbol':
           refs.markAsVisited(source)
           const str = String(source)
@@ -374,7 +399,7 @@ function serialize(src, opts = null) {
         default: {
           // One can find many exotic object types by running: console.log(serialize(window))
           console.warn(`Unknown type: ${type} source: ${source}`)
-          codeMain += `undefined /* not supported: ${source.replaceAll('*/', '* /')}*/`
+          codeMain += `undefined /* not supported: ${source.toString().replaceAll('*/', '* /')}*/`
           break
         }
       }
@@ -426,7 +451,7 @@ ${ret.codeAfter}
 
 function slog(src, opts = null) {
   opts = {
-    ignoreFunctions: true,
+    ignoreFunction: true,
     ...opts,
   }
   console.log(serialize(src, opts))

@@ -45,7 +45,7 @@ Ref.isSafeKey = function (key) {
  * @return {String} wrapped key in quotes if necessary
  */
 Ref.wrapkey = function (key, opts) {
-  return Ref.isSafeKey(key) ? key : utils.quote(key, opts)
+  return (opts.alwaysQuote === false && Ref.isSafeKey(key)) ? key : utils.quote(key, opts)
 }
 
 Ref.prototype = {

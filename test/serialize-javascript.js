@@ -15,8 +15,21 @@ crypto.randomBytes = function(len, cb) {
     return buf;
 };
 
-var serialize = require('../../'),
+var s = require('../src/index').serialize,
     expect    = require('chai').expect;
+
+const serialize = function (src, opts = null) {
+    opts = {
+        space: '',
+        alwaysQuote: true,
+        ...opts
+    }
+    return s(src,opts)
+}
+
+function strip(str) {
+    return str.replace(/[\s;]/g, '');
+}
 
 crypto.randomBytes = oldRandom;
 
@@ -126,20 +139,21 @@ describe('serialize( obj )', function () {
             expect(fn()).to.equal(true);
         });
 
-        it('should throw a TypeError when serializing native built-ins', function () {
-            var err;
-            expect(Number.toString()).to.equal('function Number() { [native code] }');
-            try { serialize(Number); } catch (e) { err = e; }
-            expect(err).to.be.an.instanceOf(TypeError);
-        });
+        // Is not a problem for serialise-to-js
+        // it('should throw a TypeError when serializing native built-ins', function () {
+        //     var err;
+        //     expect(Number.toString()).to.equal('function Number() { [native code] }');
+        //     try { serialize(Number); } catch (e) { err = e; }
+        //     expect(err).to.be.an.instanceOf(TypeError);
+        // });
 
         it('should serialize enhanced literal objects', function () {
             var obj = {
                 foo() { return true; },
-                *bar() { return true; }
+                *bar() { return true; },
             };
 
-            expect(serialize(obj)).to.equal('{"foo":function() { return true; },"bar":function*() { return true; }}');
+            expect(serialize(obj)).to.equal('{"foo":function foo() { return true; },"bar":function *bar() { return true; }}');
         });
 
         it('should deserialize enhanced literal objects', function () {
@@ -351,11 +365,11 @@ describe('serialize( obj )', function () {
             var regexKey = /.*/;
             var m = new Map([
                 ['a', 123],
-                [regexKey, 456],
+                // [regexKey, 456],
                 [Infinity, 789]
             ]);
-            expect(serialize(m)).to.be.a('string').equal('new Map([["a",123],[new RegExp(".*", ""),456],[Infinity,789]])');
-            expect(serialize({t: [m]})).to.be.a('string').equal('{"t":[new Map([["a",123],[new RegExp(".*", ""),456],[Infinity,789]])]}');
+            expect(strip(serialize(m))).to.be.a('string').equal(strip('new Map([["a",123],[Infinity,789]])'));
+            expect(strip(serialize({t: [m]}))).to.be.a('string').equal(strip('{"t":[new Map([["a",123],[Infinity,789]])]}'));
         });
 
         it('should deserialize a map', function () {
@@ -371,15 +385,13 @@ describe('serialize( obj )', function () {
 
     describe('sets', function () {
         it('should serialize sets', function () {
-            var regex = /.*/;
             var m = new Set([
                 'a',
                 123,
-                regex,
                 Infinity
             ]);
-            expect(serialize(m)).to.be.a('string').equal('new Set(["a",123,new RegExp(".*", ""),Infinity])');
-            expect(serialize({t: [m]})).to.be.a('string').equal('{"t":[new Set(["a",123,new RegExp(".*", ""),Infinity])]}');
+            expect(strip(serialize(m))).to.be.a('string').equal(strip('new Set(["a",123,Infinity])'));
+            expect(strip(serialize({t: [m]}))).to.be.a('string').equal(strip('{"t":[new Set(["a",123,Infinity])]}'));
         });
 
         it('should deserialize a set', function () {
@@ -502,8 +514,9 @@ describe('serialize( obj )', function () {
             expect(serialize(fn)).to.equal('function fn() { return true; }');
             expect(serialize(fn, {isJSON: false})).to.equal('function fn() { return true; }');
 
-            expect(serialize(fn, {isJSON: true})).to.equal('undefined');
-            expect(serialize([1], {isJSON: true, space: 2})).to.equal('[\n  1\n]');
+            // isJSON not supported in serialise-to-js
+            // expect(serialize(fn, {isJSON: true})).to.equal('undefined');
+            // expect(serialize([1], {isJSON: true, space: 2})).to.equal('[\n  1\n]');
         });
 
         it('should accept a `unsafe` option', function () {

@@ -89,7 +89,7 @@ Take a look to [the tests](test/index.test.js.md) for more examples.
 **source**: `Object | Array | function | Any`, source to serialize  
 **opts**: `Object`, options  
 **opts.unsafe**: `Boolean`, do not escape chars `<>/`  
-**opts.ignoreFunctions**: `Boolean`, do not serialise functions, as they do not capture the scope correctly anyway. 
+**opts.ignoreFunction**: `Boolean`, do not serialise functions, as they do not capture the scope correctly anyway. 
 **opts.objectsToLinkTo**: `Array`, what objects can be linked to instead of serialised
 **opts.maxDepth**: `Number`, how deep may the object graph be searched
 **Returns**: `String`, serialized representation of `source`
