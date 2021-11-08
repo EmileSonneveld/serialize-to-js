@@ -438,8 +438,9 @@ function serialize(src, opts = null) {
 
   const ret = stringify(src, 2)
   if (ret.codeBefore === '' && ret.codeAfter === '') {
-    // TODO, unindent by 1
-    return ret.codeMain
+    // Keep compatibility with default JSON
+    // TODO: Check for compatibility with example library.
+    return ret.codeMain.replaceAll("\n" + opts.space, "\n")
   }
   return `(function(){
 ${ret.codeBefore}

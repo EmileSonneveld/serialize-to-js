@@ -9,9 +9,11 @@ const UNICODE_CHARS = {
   '\r': '\\r',
   '\t': '\\t',
   '\\': '\\u005C',
+  //'\\': '\\\\',
   '<': '\\u003C',
   '>': '\\u003E',
   '/': '\\u002F',
+  //'/': '/',
   '\u2028': '\\u2028',
   '\u2029': '\\u2029'
 }
@@ -146,18 +148,25 @@ function isSimpleGetter(func, propName) {
   return false
 }
 
+/**
+ * https://stackoverflow.com/a/6969486/1448736
+ * @param string
+ * @returns {*}
+ */
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+}
+
 if (!String.prototype.replaceAll) {
   String.prototype.replaceAll = function (str, newStr) {
-    console.log(`replaceAll('${str}', '${newStr}')`)
-    for (let i = 0; i < 10; i += 1) {
-      const str2 = str.replace(newStr)
-      if (str2 === str) {
-        str = str2
-        break
-      }
-      str = str2
-      console.warn('Too mush things to replace')
+
+    // If a regex pattern
+    if (Object.prototype.toString.call(str).toLowerCase() === '[object regexp]') {
+      return this.replace(str, newStr);
     }
+
+    // If a string
+    return this.replace(new RegExp(escapeRegExp(str), 'g'), newStr);
   };
 }
 

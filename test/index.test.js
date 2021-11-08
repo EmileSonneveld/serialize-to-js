@@ -1,11 +1,9 @@
 /* eslint no-new-func: off */
-
 'use strict'
-
-// TODO: test against this suite too: https://github.com/yahoo/serialize-javascript/blob/main/test/unit/serialize.js
 
 const assert = require('assert')
 const src = require('../src')
+const {expect} = require("chai");
 const serialize = src.serialize
 
 if (typeof assert.deepStrictEqual === 'undefined') {
@@ -55,7 +53,7 @@ function test(name, inp, expSubstring, unsafe, objectsToLinkTo, deepStrictEqual 
       const strCopy = strip(str)
       console.log("strCopy:")
       console.log(strCopy)
-      assert.ok(strCopy.indexOf(expSubstring) !== -1)
+      expect(strCopy).to.contain(expSubstring);
     }
     // assert.ok(deepCompare(inp, res))
     console.log('typeof inp', typeof inp)
@@ -106,7 +104,7 @@ describe('safe mode', function () {
   )
   test('string with all unsafe characters', '<>\\\\ \t\n/', '"\\u003C\\u003E\\u005C\\u005C \\t\\n\\u002F"')
   test('empty object', {}, '{}')
-  test('object simple', { a: 1, b: 2 }, strip('{a: 1, b: 2}'))
+  test('object simple', { a: 1, b: 2 }, '{a: 1, b: 2}')
   test('object with empty string property', { a: 1, "": 2 }, '2')
   test('object with backslash', { backslash: '\\' }, '"\\u005C"')
   test('object of primitives',
