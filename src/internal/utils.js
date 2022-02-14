@@ -8,8 +8,8 @@ const UNICODE_CHARS = {
   '\n': '\\n',
   '\r': '\\r',
   '\t': '\\t',
-  '\\': '\\u005C',
-  //'\\': '\\\\',
+  '\\': '\\u005C', // needed to pass index.test.js
+  // '\\': '\\\\', // Needed to pass serialise-javascript tests.
   '<': '\\u003C',
   '>': '\\u003E',
   '/': '\\u002F',
@@ -44,8 +44,13 @@ function isObject(arg) {
   return typeof arg === 'object' && arg !== null
 }
 
+/**
+ * Only relevant in node
+ * @param arg
+ * @returns {boolean}
+ */
 function isBuffer(arg) {
-  return arg instanceof Buffer
+  return globalThis.Buffer && arg instanceof Buffer
 }
 
 function isInvalidDate(arg) {
@@ -120,32 +125,45 @@ function isProxy(obj) {
  * a function that passes this test has a low chance of changing the state
  */
 function isSimpleGetter(func, propName) {
-  let name = propName
-  if (func.name != null && func.name !== '') {
-    name = func.name
-  }
-  if ((func + '').indexOf('=') !== -1) {
+  // Only gets function content when no arguments are required
+  const tmp = (func + '').match(/^function\s*\(\)\s*\{([\s\S]*)\}/)
+  if (!tmp || tmp.length < 1) {
     return false
   }
-  if ((func + '').indexOf('this') !== -1
-  || (func + '').indexOf('arguments') !== -1) {
+  const functContent = tmp[1]
+  if (functContent.indexOf('=') !== -1) {
+    return false
+  }
+  if (functContent.indexOf('(') !== -1 && (func + '').indexOf(')') !== -1) {
+    return false
+  }
+  if (functContent.indexOf('this') !== -1
+    || functContent.indexOf('arguments') !== -1) {
     // It is possible to assign 'this' with func.apply(thisObj, args)
     // But not sure if it is possible to find the correct this.
     return false
   }
-  if ((func + '').match(/^function\s*\(\)\s*{\s*return/)) {
-    // first statement is return statement and not arguments needed
-    return true
-  }
-  if (name == null) {
-    return false
-  }
-  if (name.toLowerCase().indexOf('get') === 0) {
-    if ((func + '').indexOf('return') !== -1) {
-      return true
-    }
-  }
-  return false
+  // At this point, the function could still call other getters that are difficult to catch.
+  // If the user experiences problems with this, she can always put opts.evaluateSimpleGetters on false.
+  return true
+  // Commented out code that relies more on semantics:
+  //if (functContent.match(/^\s*return/)) {
+  //  // first statement is return statement and not arguments needed
+  //  return true
+  //}
+  //let name = propName
+  //if (func.name != null && func.name !== '') {
+  //  name = func.name
+  //}
+  //if (name == null) {
+  //  return false
+  //}
+  //if (name.toLowerCase().indexOf('get') === 0) {
+  //  if ((func + '').indexOf('return') !== -1) {
+  //    return true
+  //  }
+  //}
+  //return false
 }
 
 /**

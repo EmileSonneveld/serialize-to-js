@@ -9,6 +9,14 @@
 const utils = require('./internal/utils')
 const Ref = require('./internal/reference')
 
+class ObjectIsDirectlyLinkableError extends Error {
+  constructor(message, directLink) {
+    super(message);
+    this.name = "ObjectIsDirectlyLinkableError";
+    this.directLink = directLink;
+  }
+}
+
 /**
  * serializes an object to javascript code
  *
@@ -17,7 +25,9 @@ const Ref = require('./internal/reference')
  * @param {Boolean} opts.unsafe - do not escape chars `<>/`
  * @param {Boolean} opts.ignoreFunction
  * @param {Boolean} opts.objectsToLinkTo
+ * @param {Boolean} opts.evaluateSimpleGetters
  * @param {Boolean} opts.maxDepth
+ * @param {*} opts.space
  * @return {String} serialized representation of `source`
  */
 function serialize(src, opts = null) {
@@ -31,7 +41,7 @@ function serialize(src, opts = null) {
   }
   if (typeof opts.space === 'number') {
     opts.space = ' '.repeat(opts.space)
-  }else if (!opts.space){
+  } else if (!opts.space) {
     opts.space = ''
   }
   const newline = opts.space ? "\n" : ""
@@ -46,8 +56,15 @@ function serialize(src, opts = null) {
     let codeBefore = ""
     let codeMain = ""
     let codeAfter = ""
+
+    const type = utils.toType(source)
+
     if (absorbPhase && source === src) {
-      return { codeBefore, codeMain, codeAfter }
+      if (typeof source === "object") {
+        throw new ObjectIsDirectlyLinkableError("", refs.join())
+      } else {
+        return { codeBefore, codeMain, codeAfter }
+      }
     }
     if (indent > opts.maxDepth) {
       codeMain += "undefined /* >maxDepth */"
@@ -89,7 +106,6 @@ function serialize(src, opts = null) {
     }
 
     try {
-      const type = utils.toType(source)
 
       // https://levelup.gitconnected.com/pass-by-value-vs-pass-by-reference-in-javascript-31e79afe850a
       // TODO: Save getters and setters as functions
@@ -118,7 +134,7 @@ function serialize(src, opts = null) {
               const firstBrace = tmp.indexOf('(')
               if (firstBrace !== 0 && firstBrace !== -1) {
                 const firstSpace = tmp.indexOf(' ')
-                if(firstBrace < firstSpace) {
+                if (firstBrace < firstSpace) {
                   tmp = 'function ' + tmp
                 }
               }
@@ -132,7 +148,7 @@ function serialize(src, opts = null) {
               refs.breadcrumbs.pop()
             }
           }
-          if (opts.evaluateSimpleGetters && utils.isSimpleGetter(source)) {
+          if (!absorbPhase && opts.evaluateSimpleGetters && utils.isSimpleGetter(source)) {
             codeMain += `/* val: ${source()}*/`
           }
           // TODO, can also have dirty props!
@@ -216,7 +232,7 @@ function serialize(src, opts = null) {
             tmp.push(source[i])
           }
 
-          appendDirtyProps(source)
+          // appendDirtyProps(source) // TODO: Check if numerical properties are not double logged.
           codeMain += `new ${type}([${tmp.join(', ')}])`
           break
         }
@@ -398,12 +414,17 @@ function serialize(src, opts = null) {
           break
         default: {
           // One can find many exotic object types by running: console.log(serialize(window))
-          console.warn(`Unknown type: ${type} source: ${source}`)
-          codeMain += `undefined /* not supported: ${source.toString().replaceAll('*/', '* /')}*/`
+          if (!absorbPhase) {
+            console.warn(`Unknown type: ${type} source: ${source}`)
+            codeMain += `undefined /* not supported: ${source.toString().replaceAll('*/', '* /')}*/`
+          }
           break
         }
       }
     } catch (error) {
+      if (error instanceof ObjectIsDirectlyLinkableError) {
+        throw error;
+      }
       if (refs.unmarkVisited(source)) {
         console.warn('Dirty error.', error.message)
       }
@@ -422,12 +443,18 @@ function serialize(src, opts = null) {
   }
 
   // First absorb all objects to link to
-  if (opts.objectsToLinkTo) {
-    for (const key in opts.objectsToLinkTo) {
-      if (Object.prototype.hasOwnProperty.call(opts.objectsToLinkTo, key)) {
-        refs.breadcrumbs = [key]
-        stringify(opts.objectsToLinkTo[key])
+  try {
+    if (opts.objectsToLinkTo) {
+      for (const key in opts.objectsToLinkTo) {
+        if (Object.prototype.hasOwnProperty.call(opts.objectsToLinkTo, key)) {
+          refs.breadcrumbs = [key]
+          stringify(opts.objectsToLinkTo[key])
+        }
       }
+    }
+  } catch (error) {
+    if (error instanceof ObjectIsDirectlyLinkableError) {
+      return error.directLink
     }
   }
 

@@ -41,7 +41,7 @@ console.log(serialize(obj))
 This gives the following string as result:
 
 ```js     
-(function () {
+(function(){
   const root = {
     str: "hello world!",
     num: 3.1415,
@@ -61,8 +61,8 @@ This gives the following string as result:
       undefined /* Linked later*/
     ],
     regexp: new RegExp("^test?$", ""),
-    date: new Date("2021-10-15T19:50:12.958Z"),
-    buffer: undefined /*  Error: Buffer is not defined. Breadcrumb: root.buffer */,
+    date: new Date("2021-11-11T13:45:58.513Z"),
+    buffer: new Uint8Array([1, 2, 3]),
     set: new Set([
       1,
       2,
