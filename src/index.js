@@ -20,14 +20,14 @@ class ObjectIsDirectlyLinkableError extends Error {
 /**
  * serializes an object to javascript code
  *
- * @param {Object|Array|Function|*} src - source to serialize
+ * @param {*} src - source to serialize
  * @param {?Object} [opts] - options
- * @param {Boolean} opts.unsafe - do not escape chars `<>/`
- * @param {Boolean} opts.ignoreFunction
- * @param {Boolean} opts.objectsToLinkTo
- * @param {Boolean} opts.evaluateSimpleGetters
- * @param {Boolean} opts.maxDepth
- * @param {*} opts.space
+ * @param {Boolean} [opts.unsafe] - do not escape chars `<>/`
+ * @param {Boolean} [opts.ignoreFunction]
+ * @param {*} [opts.objectsToLinkTo]
+ * @param {Boolean} [opts.evaluateSimpleGetters]
+ * @param {Number} [opts.maxDepth]
+ * @param {*} [opts.space]
  * @return {String} serialized representation of `source`
  */
 function serialize(src, opts = null) {

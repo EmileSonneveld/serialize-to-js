@@ -134,6 +134,10 @@ function isSimpleGetter(func, propName) {
   if (functContent.indexOf('=') !== -1) {
     return false
   }
+  if (functContent.indexOf(' [native code] ') !== -1) {
+    // This test could be narrowed down
+    return false
+  }
   if (functContent.indexOf('(') !== -1 && (func + '').indexOf(')') !== -1) {
     return false
   }
