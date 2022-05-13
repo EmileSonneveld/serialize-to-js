@@ -37,6 +37,7 @@ function serialize(src, opts = null) {
     unsafe: false,
     space: '  ',
     alwaysQuote: false,
+    fullPaths: false,
     ...opts,
   }
   if (typeof opts.space === 'number') {
@@ -333,8 +334,7 @@ function serialize(src, opts = null) {
         case 'console':
         case 'Object': {
           refs.markAsVisited(source)
-          // TODO: Test with vtkActor
-          if (true) {
+          if (!opts.fullPaths) {
             const tmp = []
             for (const key in source) {
               if (Object.prototype.hasOwnProperty.call(source, key)) {

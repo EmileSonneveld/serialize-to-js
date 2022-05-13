@@ -40,7 +40,7 @@ console.log(serialize(obj))
 
 This gives the following string as result:
 
-```js     
+```js
 (function(){
   const root = {
     str: "hello world!",
@@ -117,3 +117,10 @@ Copyright (c) 2021- EmileSonneveld (MIT License)
 See [LICENSE][] for more info.
 
 [LICENSE]: ./LICENSE
+
+## Build
+
+```
+npm install
+node_modules\.bin\webpack.cmd
+```
