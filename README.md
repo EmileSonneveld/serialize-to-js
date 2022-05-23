@@ -122,5 +122,5 @@ See [LICENSE][] for more info.
 
 ```
 npm install
-node_modules\.bin\webpack.cmd
+node_modules\.bin\webpack
 ```

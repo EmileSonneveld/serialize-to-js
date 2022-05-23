@@ -38,6 +38,7 @@ function serialize(src, opts = null) {
     space: '  ',
     alwaysQuote: false,
     fullPaths: false,
+    needle: null,
     ...opts,
   }
   if (typeof opts.space === 'number') {
@@ -96,9 +97,16 @@ function serialize(src, opts = null) {
               codeAfter += `  ${refs.join()} = ${refs.getStatementForObject(source[key])};\n`
             } else {
               const ret = stringify(source[key])
-              codeBefore += ret.codeBefore
-              codeAfter += `  ${refs.join()} = ${ret.codeMain};\n`
-              codeAfter += ret.codeAfter
+
+              if (opts.needle == null
+                || ret.codeBefore.includes(opts.needle)
+                || ret.codeMain.includes(opts.needle)
+                || ret.codeAfter.includes(opts.needle)
+                ){
+                codeBefore += ret.codeBefore
+                codeAfter += `  ${refs.join()} = ${ret.codeMain};\n`
+                codeAfter += ret.codeAfter
+              }
             }
             refs.breadcrumbs.pop()
           }
