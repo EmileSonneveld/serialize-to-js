@@ -11,25 +11,36 @@ const path = require("path");
 const utils = require("../src/internal/utils");
 const serialize = src.serialize
 
-function log(arg) {
-  console.log(arg)
-  return arg
+function search2(arg) {
+  const arr = search(arg, {returnValue: true})
+  console.log(arr)
+  return arr;
 }
 
 describe("search test", () => {
   it("should be empty", () => {
-    assert.equal(log(search("!this sentence should not be found!")).length, 0)
+    assert.equal(search2("!this sentence should not be found!").length, 0)
   })
   it("find orange", () => {
     globalThis.orangeKey = "orangeValue"
-    assert.equal(log(search("orangeValue"))[0], "globalThis.orangeKey")
+    assert.equal(search2("orangeValue")[0], "globalThis.orangeKey")
     delete globalThis.orangeKey
   })
   it("find fruitBasket>orange", () => {
     globalThis.fruitBasket = {
       orangeKey: "orangeValue"
     }
-    assert.equal(log(search("orangeValue"))[0], "globalThis.fruitBasket.orangeKey")
+    assert.equal(search2("orangeValue")[0], "globalThis.fruitBasket.orangeKey")
+    delete globalThis.fruitBasket
+  })
+  it("find fruitBasket>2 oranges", () => {
+    globalThis.fruitBasket = {
+      orangeKey0: "orangeValue",
+      orangeKey1: "orangeValue",
+    }
+    const result = search2("orangeValue")
+    assert.equal(result[0], "globalThis.fruitBasket.orangeKey0")
+    assert.equal(result[1], "globalThis.fruitBasket.orangeKey1")
     delete globalThis.fruitBasket
   })
   it("find kitchen>fruitBasket>orange", () => {
@@ -38,7 +49,7 @@ describe("search test", () => {
         orangeKey: "orangeValue"
       }
     }
-    assert.equal(log(search("orangeValue"))[0], "globalThis.kitchen.fruitBasket.orangeKey")
+    assert.equal(search2("orangeValue")[0], "globalThis.kitchen.fruitBasket.orangeKey")
     delete globalThis.kitchen
   })
   it("find fruitBasketRefersToTheSame>orange", () => {
@@ -47,7 +58,7 @@ describe("search test", () => {
     }
     globalThis.fruitBasketRefersToTheSame = globalThis.fruitBasket
     // TODO: Now the second reference does not get returned. But that is ok I think
-    assert.equal(log(search("orangeValue")), "globalThis.fruitBasket.orangeKey")
+    assert.equal(search2("orangeValue"), "globalThis.fruitBasket.orangeKey")
     delete globalThis.fruitBasket
     delete globalThis.fruitBasketRefersToTheSame
   })
@@ -55,7 +66,7 @@ describe("search test", () => {
     globalThis.fruitBasket = [
       "orangeValue",
     ]
-    assert.equal(log(search("orangeValue"))[0], "globalThis.fruitBasket[\"0\"]")
+    assert.equal(search2("orangeValue")[0], "globalThis.fruitBasket[\"0\"]")
     delete globalThis.fruitBasket
   })
   it("find fruitBasket[(with banana)]>orange", () => {
@@ -63,7 +74,7 @@ describe("search test", () => {
       "orangeValue",
       "randomBanana",
     ]
-    assert.equal(log(search("orangeValue"))[0], "globalThis.fruitBasket[\"0\"]")
+    assert.equal(search2("orangeValue")[0], "globalThis.fruitBasket[\"0\"]")
     delete globalThis.fruitBasket
   })
     // TODO: Map
@@ -71,7 +82,7 @@ describe("search test", () => {
     //     globalThis.fruitMap = new Map([
     //         ['orangeKey', "orangeValue"],
     //     ])
-    //     assert.equal(log(search("orangeValue"))[0], "globalThis.fruitBasket.get(\"orangeKey\")")
+    //     assert.equal(search2("orangeValue"))[0], "globalThis.fruitBasket.get(\"orangeKey\")")
     //     delete globalThis.fruitMap
     // })
   it("find kitchen>basketProperty(fresh)>orangeKey>orange", () => {
@@ -84,7 +95,7 @@ describe("search test", () => {
         }
       },
     })
-    assert.equal(log(search("orangeValue"))[0], "globalThis.kitchen.basketProperty.orangeKey")
+    assert.equal(search2("orangeValue")[0], "globalThis.kitchen.basketProperty.orangeKey")
     delete globalThis.kitchen
   })
   it("find kitchen>basketProperty(re-use)>orangeKey>orange", () => {
@@ -98,9 +109,24 @@ describe("search test", () => {
         return basket
       },
     })
-    assert.equal(log(search("orangeValue"))[0], "globalThis.kitchen.basketProperty.orangeKey")
+    assert.equal(search2("orangeValue")[0], "globalThis.kitchen.basketProperty.orangeKey")
     delete globalThis.kitchen
   })
+  it("123 to find '123'", () => {
+    globalThis.numbersStr = "123"
+    assert.equal(search2(123)[0], "globalThis.numbersStr")
+    delete globalThis.numbersStr
+  })
+  it("'123' to find 123", () => {
+    globalThis.numbers = "123"
+    assert.equal(search2('123')[0], "globalThis.numbers")
+    delete globalThis.numbers
+  })
+  it("hacked toString", () => {
+    globalThis.basket = {}
+    // A problem like this was found on httpd://calendar.google.com
+    basket.toString = function(){throw Error("got you!")}
+    assert.equal(search2("!this sentence should not be found!").length, 0)
+    delete globalThis.basket
+  })
 })
-
-

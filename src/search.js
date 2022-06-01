@@ -13,6 +13,7 @@ const {slog} = require('./index')
  */
 function search(needle, opts = null) {
   opts = {
+    returnValue: false,
     ...opts,
   }
   const results = [];
@@ -24,12 +25,12 @@ function search(needle, opts = null) {
 
   while (queue.length > 0) {
     const source = queue.shift() // same as dequeue
-    try{
-    if(source.toString == null){
-      // Avoid "TypeError: Cannot convert object to primitive value"
-      continue
-    }
-    }catch(e){
+    try {
+      if (source.toString == null) {
+        // Avoid "TypeError: Cannot convert object to primitive value"
+        continue
+      }
+    } catch (e) {
       // Probably: DOMException: Blocked a frame with origin "https://..." from accessing a cross-origin frame.
       continue
     }
@@ -45,19 +46,22 @@ function search(needle, opts = null) {
         const acces = Ref.isSafeKey(key) ? `.${key}` : `[${utils.quote(key, opts)}]`;
         const child = source[key]
 
-        try{
+        try {
           // noinspection BadExpressionStatementJS
           child.toString == null
-        }catch(e){
+        } catch (e) {
           // Probably: DOMException: Blocked a frame with origin "https://..." from accessing a cross-origin frame.
           continue
         }
+        // noinspection EqualityComparisonWithCoercionJS
         if (child === needle ||
-            (child
-                && child.toString // avoid "TypeError: Cannot convert object to primitive value"
-                && (!child.length === 1)) // avoid '(['a'] == 'a')===true' weirdness
-                && child == needle // sloppy compare can be handy
-        ) { // todo, sloppy equals
+          (child
+            && child.toString // avoid "TypeError: Cannot convert object to primitive value"
+            && (utils.isSimpleGetter(child.toString) || (child.toString + '').indexOf(' [native code] ') !== -1)
+            && !(child.length === 1) // avoid '(['a'] == 'a')===true' weirdness
+            && child == needle // sloppy compare can be handyfor '5'==5
+          )
+        ) {
           let el = visitedRefs.get(source)
           let breadcrumbs = acces;
           while (true) {
@@ -68,11 +72,11 @@ function search(needle, opts = null) {
             el = visitedRefs.get(el.parent)
           }
           results.push(breadcrumbs)
-          continue; // TODO: remove to get multiple paths to same object?
+          continue; // no need to go deeper in this object
         }
         if (
           typeof child !== 'object' ||
-            child == null
+          child == null
         ) {
           continue;
         }
@@ -86,7 +90,12 @@ function search(needle, opts = null) {
       }
     }
   }
-  return results;
+  if(opts.returnValue) {
+    return results
+  }
+
+  // Easy to copy/paste from console:
+  console.log(results.join("\n"))
 }
 
 module.exports = {
