@@ -14,17 +14,18 @@ const {slog} = require('./index')
 function search(needle, opts = null) {
   opts = {
     returnValue: false,
+    root: globalThis,
     ...opts,
   }
   const results = [];
 
   const visitedRefs = new Map()
-  visitedRefs.set(globalThis, {parent: null, acces: 'globalThis'})
+  visitedRefs.set(opts.root, {parent: null, acces: 'globalThis'})
   const queue = []
-  queue.push(globalThis)
+  queue.push(opts.root)
 
   while (queue.length > 0) {
-    const source = queue.shift() // same as dequeue
+    let source = queue.shift() // same as dequeue
     try {
       if (source.toString == null) {
         // Avoid "TypeError: Cannot convert object to primitive value"
@@ -40,11 +41,18 @@ function search(needle, opts = null) {
     for (const key in descs) {
       if (Object.prototype.hasOwnProperty.call(descs, key)) {
         const propDesc = descs[key]
-        if (propDesc.get && !utils.isSimpleGetter(propDesc.get)) {
+        if (propDesc.get && !(utils.isSimpleGetter(propDesc.get) || (propDesc.get + '').indexOf(' [native code] ') !== -1)) {
           continue
         }
-        const acces = Ref.isSafeKey(key) ? `.${key}` : `[${utils.quote(key, opts)}]`;
-        const child = source[key]
+        let acces = Ref.isSafeKey(key) ? `.${key}` : `[${utils.quote(key, opts)}]`;
+        let child = source[key]
+        if(typeof child == "function" && utils.isSimpleGetter(child)){
+          visitedRefs.set(child, {parent: source, acces})
+          // jump inside the function
+          acces = "()";
+          source = child;
+          child = child();
+        }
 
         try {
           // noinspection BadExpressionStatementJS
@@ -59,7 +67,7 @@ function search(needle, opts = null) {
             && child.toString // avoid "TypeError: Cannot convert object to primitive value"
             && (utils.isSimpleGetter(child.toString) || (child.toString + '').indexOf(' [native code] ') !== -1)
             && !(child.length === 1) // avoid '(['a'] == 'a')===true' weirdness
-            && child == needle // sloppy compare can be handyfor '5'==5
+            && child == needle // sloppy compare can be handy for '5'==5
           )
         ) {
           let el = visitedRefs.get(source)

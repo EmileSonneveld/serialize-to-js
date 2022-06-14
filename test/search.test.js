@@ -129,4 +129,16 @@ describe("search test", () => {
     assert.equal(search2("!this sentence should not be found!").length, 0)
     delete globalThis.basket
   })
+  it("simpleFunction", () => {
+    globalThis.simpleFunction = function (){ return "orangeValue"}
+    assert.equal(search2("orangeValue")[0], "globalThis.simpleFunction()")
+    delete globalThis.simpleFunction
+  })
+  it("simpleFunction returning object", () => {
+    globalThis.simpleFunction = function (){ return {
+      orangeKey: "orangeValue"
+    }}
+    assert.equal(search2("orangeValue")[0], "globalThis.simpleFunction().orangeKey")
+    delete globalThis.simpleFunction
+  })
 })

@@ -1,11 +1,8 @@
 {
-  "name": "Getting Started Example",
-  "description": "Build an Extension!",
+  "name": "JS search",
+  "description": "Search how to get a certain value in JS!",
   "version": "1.0",
   "manifest_version": 3,
-  "background": {
-    "service_worker": "background.js"
-  },
   "permissions": ["storage", "activeTab", "scripting"],
   "action": {
     "default_popup": "popup.html",
@@ -15,6 +12,5 @@
   },
   "icons": {
     "128": "/images/icon128.png"
-  },
-  "options_page": "options.html"
+  }
 }
