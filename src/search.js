@@ -102,6 +102,5 @@ module.exports = {
   search,
 }
 
-if (typeof window !== "undefined") {
-  window.search = search
-}
+// store globally:
+globalThis.search = search

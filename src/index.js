@@ -8,6 +8,7 @@
 
 const utils = require('./internal/utils')
 const Ref = require('./internal/reference')
+const search = require('./search')
 
 class ObjectIsDirectlyLinkableError extends Error {
   constructor(message, directLink) {
@@ -423,7 +424,7 @@ function serialize(src, opts = null) {
         default: {
           // One can find many exotic object types by running: console.log(serialize(window))
           if (!absorbPhase) {
-            console.warn(`Unknown type: ${type} source: ${source}`)
+            // console.warn(`Unknown type: ${type} source: ${source}`)
             codeMain += `undefined /* not supported: ${source.toString().replaceAll('*/', '* /')}*/`
           }
           break
@@ -497,8 +498,6 @@ module.exports = {
   serialize,
   slog,
 }
-
-if (typeof window !== "undefined") {
-  window.serialize = serialize
-  window.slog = slog
-}
+// store globally:
+globalThis.serialize = serialize
+globalThis.slog = slog
