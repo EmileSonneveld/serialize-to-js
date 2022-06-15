@@ -8,6 +8,14 @@ iframe_holder
 <iframe src="http://localhost:55555/test/iframe_content.html" id="iframe"></iframe>
 <script>
   window.name = "iframe_holder"
+  lol = 5
+  hihi = 5
+
+  f = (function(){
+    var hey = 5;
+    console.log('hey', hey);
+  });
+  f();
 
   slog(window) // Should produce valid JS
 </script>

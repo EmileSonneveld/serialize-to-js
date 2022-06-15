@@ -690,8 +690,8 @@ describe("getter and setter", () => {
   })
 })
 
-/*
-TODO: Should make selenium test to test iframe permissions.
+
+// TODO: Should make selenium test to test iframe permissions.
 describe("iframe test", () => {
   it("acces child iframe", () => {
 
@@ -718,4 +718,4 @@ describe("iframe test", () => {
     createFileServer(".", 55555)
   })
 })
-*/
+

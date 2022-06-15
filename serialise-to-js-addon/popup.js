@@ -3,6 +3,12 @@
 const searchButton = document.getElementById("searchButton");
 const resultElement = document.getElementById("resultElement");
 const searchText = document.getElementById("searchText");
+
+window.onblur = function () {
+    // IndexedDB is quite bad compared to localStorage.
+    localStorage.setItem('searchTextValue', searchText.value);
+}
+searchText.value = localStorage.getItem('searchTextValue');
 searchText.focus();
 searchText.select();
 searchText.addEventListener("keypress", function (event) {
@@ -12,8 +18,18 @@ searchText.addEventListener("keypress", function (event) {
     }
 });
 
+function asyncButtonClick(buttonElement, asyncCallback) {
+    searchButton.addEventListener("click", function (evt) {
+        buttonElement.disabled = true;
+        asyncCallback(evt).catch((e) => {
+            console.warn(e);
+            window.alert(e);
+        }).finally(() => buttonElement.disabled = false);
+    });
+}
+
 // When the button is clicked, inject setPageBackgroundColor into current page
-searchButton.addEventListener("click", async () => {
+asyncButtonClick(searchButton, async () => {
     resultElement.innerText = "Loading...";
     const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
     let result = await chrome.scripting.executeScript({
@@ -37,9 +53,12 @@ function setPageBackgroundColor(needle) {
     const capture = {};
 
 
-    /******/ (() => { // webpackBootstrap
-        /******/ 	"use strict";
-        /******/ 	var __webpack_modules__ = ([
+    /******/
+    (() => { // webpackBootstrap
+        /******/
+        "use strict";
+        /******/
+        var __webpack_modules__ = ([
             /* 0 */
             /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
@@ -48,7 +67,6 @@ function setPageBackgroundColor(needle) {
                  * @copyright 2021- EmileSonneveld
                  * @license MIT
                  */
-
 
 
                 const utils = __webpack_require__(1)
@@ -111,12 +129,12 @@ function setPageBackgroundColor(needle) {
                             if (typeof source === "object") {
                                 throw new ObjectIsDirectlyLinkableError("", refs.join())
                             } else {
-                                return { codeBefore, codeMain, codeAfter }
+                                return {codeBefore, codeMain, codeAfter}
                             }
                         }
                         if (indent > opts.maxDepth) {
                             codeMain += "undefined /* >maxDepth */"
-                            return { codeBefore, codeMain, codeAfter }
+                            return {codeBefore, codeMain, codeAfter}
                         }
 
                         function appendDirtyProps(source) {
@@ -148,7 +166,7 @@ function setPageBackgroundColor(needle) {
                                                 || ret.codeBefore.includes(opts.needle)
                                                 || ret.codeMain.includes(opts.needle)
                                                 || ret.codeAfter.includes(opts.needle)
-                                            ){
+                                            ) {
                                                 codeBefore += ret.codeBefore
                                                 codeAfter += `  ${refs.join()} = ${ret.codeMain};\n`
                                                 codeAfter += ret.codeAfter
@@ -485,7 +503,7 @@ function setPageBackgroundColor(needle) {
                             // codeMain can have /**/ comments in it already.
                             codeMain = `undefined /* ${codeMain.replaceAll('*/', '* /')} ${errorToValue(error)} */`
                         }
-                        return { codeBefore, codeMain, codeAfter }
+                        return {codeBefore, codeMain, codeAfter}
                     }
 
                     function errorToValue(error) {
@@ -548,10 +566,10 @@ ${ret.codeAfter}
                 capture.slog = slog
 
 
-                /***/ }),
+                /***/
+            }),
             /* 1 */
             /***/ ((module) => {
-
 
 
                 const UNSAFE_CHARS_REGEXP = /[<>\u2028\u2029/\\\r\n\t"]/g
@@ -762,7 +780,8 @@ ${ret.codeAfter}
                 }
 
 
-                /***/ }),
+                /***/
+            }),
             /* 2 */
             /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
@@ -770,7 +789,6 @@ ${ret.codeAfter}
                  * @copyright 2015- commenthol
                  * @license MIT
                  */
-
 
 
                 const utils = __webpack_require__(1)
@@ -862,10 +880,10 @@ ${ret.codeAfter}
                 module.exports = Ref
 
 
-                /***/ }),
+                /***/
+            }),
             /* 3 */
             /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
 
 
                 const utils = __webpack_require__(1)
@@ -914,7 +932,7 @@ ${ret.codeAfter}
                                 }
                                 let acces = Ref.isSafeKey(key) ? `.${key}` : `[${utils.quote(key, opts)}]`;
                                 let child = source[key]
-                                if(typeof child == "function" && utils.isSimpleGetter(child)){
+                                if (typeof child == "function" && utils.isSimpleGetter(child)) {
                                     visitedRefs.set(child, {parent: source, acces})
                                     acces = "()";
                                     source = child;
@@ -965,7 +983,7 @@ ${ret.codeAfter}
                             }
                         }
                     }
-                    if(opts.returnValue) {
+                    if (opts.returnValue) {
                         return results
                     }
 
@@ -981,41 +999,56 @@ ${ret.codeAfter}
                 capture.search = search
 
 
-                /***/ })
-            /******/ 	]);
+                /***/
+            })
+            /******/]);
         /************************************************************************/
         /******/ 	// The module cache
-        /******/ 	var __webpack_module_cache__ = {};
+        /******/
+        var __webpack_module_cache__ = {};
         /******/
         /******/ 	// The require function
-        /******/ 	function __webpack_require__(moduleId) {
+        /******/
+        function __webpack_require__(moduleId) {
             /******/ 		// Check if module is in cache
-            /******/ 		var cachedModule = __webpack_module_cache__[moduleId];
-            /******/ 		if (cachedModule !== undefined) {
-                /******/ 			return cachedModule.exports;
-                /******/ 		}
+            /******/
+            var cachedModule = __webpack_module_cache__[moduleId];
+            /******/
+            if (cachedModule !== undefined) {
+                /******/
+                return cachedModule.exports;
+                /******/
+            }
             /******/ 		// Create a new module (and put it into the cache)
-            /******/ 		var module = __webpack_module_cache__[moduleId] = {
+            /******/
+            var module = __webpack_module_cache__[moduleId] = {
                 /******/ 			// no module.id needed
                 /******/ 			// no module.loaded needed
-                /******/ 			exports: {}
-                /******/ 		};
+                /******/            exports: {}
+                /******/
+            };
             /******/
             /******/ 		// Execute the module function
-            /******/ 		__webpack_modules__[moduleId](module, module.exports, __webpack_require__);
+            /******/
+            __webpack_modules__[moduleId](module, module.exports, __webpack_require__);
             /******/
             /******/ 		// Return the exports of the module
-            /******/ 		return module.exports;
-            /******/ 	}
+            /******/
+            return module.exports;
+            /******/
+        }
+
         /******/
         /************************************************************************/
         /******/
         /******/ 	// startup
         /******/ 	// Load entry module and return exports
         /******/ 	// This entry module is referenced by other modules so it can't be inlined
-        /******/ 	var __webpack_exports__ = __webpack_require__(0);
         /******/
-        /******/ })()
+        var __webpack_exports__ = __webpack_require__(0);
+        /******/
+        /******/
+    })()
     ;
 
 

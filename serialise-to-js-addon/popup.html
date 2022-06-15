@@ -2,13 +2,19 @@
 <html>
 <head>
     <link rel="stylesheet" href="button.css">
+    <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css">
 </head>
-<body style="width: fit-content;">
-<div style="display:grid;grid-template-columns: auto auto;">
-    <input id="searchText" type="text" value="Waldo">
-    <button id="searchButton">Search</button>
+<body style="width: 200px;">
+
+<div class="input-group mb-3">
+    <input id="searchText" type="text" value="Waldo" class="form-control">
+    <div class="input-group-append">
+        <button class="btn btn-outline-primary" type="button" id="searchButton">Search</button>
+    </div>
 </div>
 <table id="resultElement" style="width: 100%;"></table>
 <script src="popup.js"></script>
+<script src="bootstrap/js/bootstrap.bundle.js"></script>
+
 </body>
 </html>

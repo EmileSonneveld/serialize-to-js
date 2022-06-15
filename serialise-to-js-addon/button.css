@@ -1,3 +1,8 @@
 tr:nth-child(even) {
     background-color: #cacaca;
 }
+
+
+body {
+    padding: 10px;
+}
