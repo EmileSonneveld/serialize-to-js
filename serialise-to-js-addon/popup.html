@@ -4,15 +4,39 @@
     <link rel="stylesheet" href="button.css">
     <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css">
 </head>
-<body style="width: 200px;">
+<body style="width: 300px;">
 
-<div class="input-group mb-3">
-    <input id="searchText" type="text" value="Waldo" class="form-control">
-    <div class="input-group-append">
-        <button class="btn btn-outline-primary" type="button" id="searchButton">Search</button>
+
+<!-- Buttons need href="#" to have to correct pointer cursor. -->
+<ul class="nav nav-tabs" id="myTab" role="tablist">
+    <li class="nav-item" role="presentation">
+        <a class="nav-link active" id="value-seach-tab" data-bs-toggle="tab" data-bs-target="#home" type="button" href="#"
+           role="tab" aria-controls="home" aria-selected="true">Value search</a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link" id="changed-search-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button" href="#"
+           role="tab" aria-controls="profile" aria-selected="false">Change search</a>
+    </li>
+</ul>
+<div class="tab-content" style="padding-top: 5px">
+    <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="value-seach-tab">
+        <div class="input-group mb-3">
+            <input id="searchText" type="text" value="Waldo" class="form-control">
+            <div class="input-group-append">
+                <button class="btn btn-outline-primary" type="button" id="searchButton">Search</button>
+            </div>
+        </div>
+        <table id="resultElement" style="width: 100%;"></table>
+    </div>
+    <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="changed-search-tab">
+        <button type="button" href="#" class="btn btn-success" id="btnBefore">Before</button>
+        <button type="button" href="#" class="btn btn-success" id="btnAfter">After</button>
+        <button type="button" href="#" class="btn btn-success" id="btnUnchanged" style="display: none">Unchanged</button>
+        <table id="resultElementChanged" style="width: 100%;"></table>
     </div>
 </div>
-<table id="resultElement" style="width: 100%;"></table>
+
+
 <script src="popup.js"></script>
 <script src="bootstrap/js/bootstrap.bundle.js"></script>
 

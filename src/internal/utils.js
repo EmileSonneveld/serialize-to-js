@@ -136,7 +136,10 @@ function isSimpleGetter(func, propName) {
   }
   if (functContent.indexOf(' [native code] ') !== -1) {
     // This test could be narrowed down
-    return false
+    // 'window.test = "value"' adds a getter and setter to 'window'
+    return true
+    // Before native code was not considered as a simple function.
+    // Not sure what the dangers of that where.
   }
   if (functContent.indexOf('(') !== -1 && (func + '').indexOf(')') !== -1) {
     return false

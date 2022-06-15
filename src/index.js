@@ -32,6 +32,7 @@ class ObjectIsDirectlyLinkableError extends Error {
  * @return {String} serialized representation of `source`
  */
 function serialize(src, opts = null) {
+  if (src === "magic value that will resort to globalThis object") {src = globalThis;}
   opts = {
     maxDepth: Infinity,
     evaluateSimpleGetters: true,

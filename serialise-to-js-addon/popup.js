@@ -3,6 +3,10 @@
 const searchButton = document.getElementById("searchButton");
 const resultElement = document.getElementById("resultElement");
 const searchText = document.getElementById("searchText");
+const btnBefore = document.getElementById("btnBefore");
+const btnAfter = document.getElementById("btnAfter");
+const btnUnchanged = document.getElementById("btnUnchanged");
+const resultElementChanged = document.getElementById("resultElementChanged");
 
 window.onblur = function () {
     // IndexedDB is quite bad compared to localStorage.
@@ -18,27 +22,47 @@ searchText.addEventListener("keypress", function (event) {
     }
 });
 
+function isPromise(p) {
+    return typeof p === 'object' && typeof p.then === 'function';
+}
+
 function asyncButtonClick(buttonElement, asyncCallback) {
-    searchButton.addEventListener("click", function (evt) {
+    buttonElement.addEventListener("click", function (evt) {
         buttonElement.disabled = true;
-        asyncCallback(evt).catch((e) => {
-            console.warn(e);
-            window.alert(e);
-        }).finally(() => buttonElement.disabled = false);
+        const buttonElementOriginalInnerHtml = buttonElement.innerHTML
+        buttonElement.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ' + buttonElement.innerHTML
+
+        setTimeout(() => {
+            let returnedPromise = null;
+            try {
+                let p = asyncCallback(evt)
+                returnedPromise = isPromise(p)
+                if (returnedPromise) {
+                    p.catch((e) => {
+                        console.error(e);
+                        window.alert(e);
+                    }).finally(() => {
+                        // Would be nice if finally events are called LIFO
+                        buttonElement.disabled = false
+                        buttonElement.innerHTML = buttonElementOriginalInnerHtml;
+                    });
+                }
+            } catch (e) {
+                console.error(e);
+                window.alert(e);
+            } finally {
+                if (!returnedPromise) {
+                    buttonElement.disabled = false
+                    buttonElement.innerHTML = buttonElementOriginalInnerHtml;
+                }
+            }
+        }, 10)
     });
 }
 
-// When the button is clicked, inject setPageBackgroundColor into current page
 asyncButtonClick(searchButton, async () => {
     resultElement.innerText = "Loading...";
-    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-    let result = await chrome.scripting.executeScript({
-        target: {tabId: tab.id},
-        world: "MAIN",
-        function: setPageBackgroundColor,
-        args: [searchText.value],
-    });
-    result = result[0].result;
+    const result = await callStjFunctionWrapped("search", searchText.value, {returnValue: true})
     console.log(result);
     if (result.length) {
         resultElement.innerHTML = result.map(str => `<tr><th>${str}</th></tr>`).join("\n");
@@ -47,10 +71,70 @@ asyncButtonClick(searchButton, async () => {
     }
 });
 
+let contentBefore = null
+let contentAfter = null
+let contentUnchanged = null
+
+function updateChangeSearch() {
+    btnBefore.classList.remove("btn-danger")
+    if (!contentBefore) btnBefore.classList.add("btn-danger")
+    btnAfter.classList.remove("btn-danger")
+    if (!contentAfter) btnAfter.classList.add("btn-danger")
+    btnUnchanged.classList.remove("btn-danger")
+    if (!contentUnchanged) btnUnchanged.classList.add("btn-danger")
+
+    if (contentBefore == null || contentAfter == null) {
+        resultElementChanged.innerText = "Capture before and after to show something";
+        return;
+    }
+    const result = []
+    for (const line of contentBefore) {
+        // The amount of times a line occurs is not taken into account.
+        if (contentAfter.has(line)) {
+        } else {
+            result.push(line)
+        }
+    }
+    if (result.length === 0) {
+
+        resultElementChanged.innerText = "Nothing to show";
+    } else {
+        resultElementChanged.innerHTML = result.map(str => `<tr><th>${str}</th></tr>`).join("\n");
+    }
+}
+
+updateChangeSearch();
+
+asyncButtonClick(btnBefore, async () => {
+    const tmp = await callStjFunctionWrapped("serialize",
+        "magic value that will resort to globalThis object",
+        {fullPaths: true})
+    contentBefore = new Set(tmp.split('\n'))
+    updateChangeSearch()
+});
+asyncButtonClick(btnAfter, async () => {
+    const tmp = await callStjFunctionWrapped("serialize",
+        "magic value that will resort to globalThis object",
+        {fullPaths: true})
+    contentAfter = new Set(tmp.split('\n'))
+    updateChangeSearch()
+});
+asyncButtonClick(btnUnchanged, async () => {
+    const tmp = await callStjFunctionWrapped("serialize",
+        "magic value that will resort to globalThis object",
+        {fullPaths: true})
+    contentUnchanged = new Set(tmp.split('\n'))
+    updateChangeSearch()
+});
+
+
 // The body of this function will be execuetd as a content script inside the
 // current page
-function setPageBackgroundColor(needle) {
+function callStjFunction(functionName, arg, opts) {
+    // console.log(...arguments)
     const capture = {};
+    // Paste "main.js" content here and adapt:
+    // (this is to avid needing 'eval')
 
 
     /******/
@@ -95,6 +179,9 @@ function setPageBackgroundColor(needle) {
                  * @return {String} serialized representation of `source`
                  */
                 function serialize(src, opts = null) {
+                    if (src === "magic value that will resort to globalThis object") {
+                        src = globalThis;
+                    }
                     opts = {
                         maxDepth: Infinity,
                         evaluateSimpleGetters: true,
@@ -1052,5 +1139,16 @@ ${ret.codeAfter}
     ;
 
 
-    return capture.search(needle, {returnValue: true,});
+    return capture[functionName](arg, opts);
+}
+
+async function callStjFunctionWrapped(functionName, arg, opts) {
+    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+    let result = await chrome.scripting.executeScript({
+        target: {tabId: tab.id},
+        world: "MAIN",
+        function: callStjFunction,
+        args: [functionName, arg, opts],
+    });
+    return result[0].result;
 }
