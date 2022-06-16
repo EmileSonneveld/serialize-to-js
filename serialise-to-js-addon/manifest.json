@@ -1,12 +1,12 @@
 {
-  "name": "JS search",
+  "name": "JS Search",
   "description": "Search how to get a certain value in JS!",
   "version": "1.0",
   "manifest_version": 3,
   "permissions": [
     "activeTab",
-    "scripting"
-    //"unlimitedStorage" // default is 5MB, but a JS dump can take 100Mb
+    "scripting",
+    "unlimitedStorage"
   ],
   "action": {
     "default_popup": "popup.html",
