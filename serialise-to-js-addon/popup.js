@@ -15,44 +15,6 @@ let stjState = {
     contentUnchanged: null,
 }
 
-const tmp = JSON.parse(localStorage.getItem('stjState'))
-if (tmp) {
-    // For debugging: localStorage.removeItem('stjState')
-    stjState = tmp
-} else {
-    // Keep the folowing blob in sync with the content of onblur
-    stjState.searchTextValue = searchText.value;
-    stjState.selectedTab = document.querySelector('[aria-selected="true"]').id
-}
-
-function save() { // in popup
-    // IndexedDB is quite bad compared to localStorage. TODO: Maybe unlimited storage??
-
-    // Could give:
-    // "DOMException: Failed to execute 'setItem' on 'Storage': Setting the value of 'stjState' exceeded the quota."
-    stjState.searchTextValue = searchText.value;
-    stjState.selectedTab = document.querySelector('[aria-selected="true"]').id
-
-    localStorage.setItem('stjState', JSON.stringify(stjState));
-
-    // Async is a bit harder to work with, this API is less standard and needs "storage" permission:
-    // chrome.storage.sync.set("searchTextValue", searchText.value);
-}
-
-// window.onunload = save // in standard chrome
-window.onblur = save
-
-document.getElementById(stjState.selectedTab).click()
-searchText.value = stjState.searchTextValue
-searchText.focus();
-searchText.select();
-searchText.addEventListener("keypress", function (event) {
-    if (event.key === "Enter") {
-        event.preventDefault();
-        searchButton.click();
-    }
-});
-
 function isPromise(p) {
     return typeof p === 'object' && typeof p.then === 'function';
 }
@@ -87,33 +49,14 @@ function asyncButtonClick(buttonElement, asyncCallback) {
                     buttonElement.innerHTML = buttonElementOriginalInnerHtml;
                 }
             }
-        }, 10)
+        }, 40)
     });
 }
 
-asyncButtonClick(searchButton, async () => {
-    resultElement.innerText = "Loading...";
-    const result = await callStjFunctionWrapped("search", searchText.value, {returnValue: true})
-    console.log(result);
-    if (result.length) {
-        resultElement.innerHTML = result.map(str => `<tr><th>${str}</th></tr>`).join("\n");
-    } else {
-        resultElement.innerText = "nothing found";
-    }
-});
 
 let contentBeforeSet = null;
 let contentAfterSet = null;
 let contentUnchangedSet = null;
-if (stjState.contentBefore) {
-    contentBeforeSet = new Set(stjState.contentBefore.split('\n'))
-}
-if (stjState.contentAfter) {
-    contentAfterSet = new Set(stjState.contentAfter.split('\n'))
-}
-if (stjState.contentUnchanged) {
-    contentUnchangedSet = new Set(stjState.contentUnchanged.split('\n'))
-}
 
 function updateChangeSearch() {
     btnBefore.classList.remove("btn-danger")
@@ -130,6 +73,8 @@ function updateChangeSearch() {
     const result = []
     for (const line of contentAfterSet) {
         // The amount of times a line occurs is not taken into account.
+
+        // Small example of possible inputs:
         //         B A U
         // noise = 5 6 7
         // signl = 1 2 2
@@ -145,39 +90,6 @@ function updateChangeSearch() {
         resultElementChanged.innerHTML = result.map(str => `<tr><th>${str}</th></tr>`).join("\n");
     }
 }
-
-updateChangeSearch();
-
-asyncButtonClick(btnBefore, async () => {
-    stjState.contentBefore = await callStjFunctionWrapped("serialize",
-        "magic value that will resort to globalThis object",
-        {fullPaths: true, ignoreFunction: true,})
-    contentBeforeSet = new Set(stjState.contentBefore.split('\n'))
-    updateChangeSearch()
-    await save()
-});
-asyncButtonClick(btnAfter, async () => {
-    stjState.contentAfter = await callStjFunctionWrapped("serialize",
-        "magic value that will resort to globalThis object",
-        {fullPaths: true, ignoreFunction: true,})
-    contentAfterSet = new Set(stjState.contentAfter.split('\n'))
-    updateChangeSearch()
-    await save()
-});
-asyncButtonClick(btnUnchanged, async () => {
-    stjState.contentUnchanged = await callStjFunctionWrapped("serialize",
-        "magic value that will resort to globalThis object",
-        {fullPaths: true, ignoreFunction: true,})
-    contentUnchangedSet = new Set(stjState.contentUnchanged.split('\n'))
-    updateChangeSearch()
-    await save()
-});
-asyncButtonClick(btnClear, async () => {
-    stjState.contentBefore = null
-    stjState.contentAfter = null
-    stjState.contentUnchanged = null
-    updateChangeSearch();
-});
 
 
 // The body of this function will be execuetd as a content script inside the
@@ -1045,7 +957,7 @@ ${ret.codeAfter}
                     const results = [];
 
                     const visitedRefs = new Map()
-                    visitedRefs.set(opts.root, {parent: null, acces: 'globalThis'})
+                    visitedRefs.set(opts.root, {parent: null, acces: 'window'})
                     const queue = []
                     queue.push(opts.root)
 
@@ -1204,3 +1116,114 @@ async function callStjFunctionWrapped(functionName, arg, opts) {
     });
     return result[0].result;
 }
+
+function updateSets() {
+    if (stjState.contentBefore) {
+        contentBeforeSet = new Set(stjState.contentBefore.split('\n'))
+    }
+    if (stjState.contentAfter) {
+        contentAfterSet = new Set(stjState.contentAfter.split('\n'))
+    }
+    if (stjState.contentUnchanged) {
+        contentUnchangedSet = new Set(stjState.contentUnchanged.split('\n'))
+    }
+}
+
+// onunhandledrejection should never be triggered. I prefer to manage rejections explicitly.
+// window.onunhandledrejection = (e)=>{console.log("onunhandledrejection", e)}
+// window.onerror = (e)=>{console.log("onerror", e)}
+
+const init = (async () => {
+    // const tmp = JSON.parse(localStorage.getItem('stjState'))
+    const tmp = await indexedDbStorage.getItem('stjState')
+
+    if (tmp) {
+        // For debugging: localStorage.removeItem('stjState')
+        stjState = tmp
+        updateSets()
+    } else {
+        // Keep the folowing blob in sync with the content of save()
+        stjState.searchTextValue = searchText.value
+        stjState.selectedTab = document.querySelector('[aria-selected="true"]').id
+    }
+    // window.onunload = save // in standard chrome
+    window.onblur = save
+
+
+    asyncButtonClick(searchButton, async () => {
+        resultElement.innerText = "Loading...";
+        const result = await callStjFunctionWrapped("search", searchText.value, {returnValue: true})
+        console.log(result);
+        if (result.length) {
+            resultElement.innerHTML = result.map(str => `<tr><th>${str}</th></tr>`).join("\n");
+        } else {
+            resultElement.innerText = "nothing found";
+        }
+    });
+
+    updateChangeSearch();
+
+    asyncButtonClick(btnBefore, async () => {
+        stjState.contentBefore = await callStjFunctionWrapped("serialize",
+            "magic value that will resort to globalThis object",
+            {fullPaths: true, ignoreFunction: true,})
+        contentBeforeSet = new Set(stjState.contentBefore.split('\n'))
+        updateChangeSearch()
+        await save()
+    });
+    asyncButtonClick(btnAfter, async () => {
+        stjState.contentAfter = await callStjFunctionWrapped("serialize",
+            "magic value that will resort to globalThis object",
+            {fullPaths: true, ignoreFunction: true,})
+        contentAfterSet = new Set(stjState.contentAfter.split('\n'))
+        updateChangeSearch()
+        await save()
+    });
+    asyncButtonClick(btnUnchanged, async () => {
+        stjState.contentUnchanged = await callStjFunctionWrapped("serialize",
+            "magic value that will resort to globalThis object",
+            {fullPaths: true, ignoreFunction: true,})
+        contentUnchangedSet = new Set(stjState.contentUnchanged.split('\n'))
+        updateChangeSearch()
+        await save()
+    });
+    asyncButtonClick(btnClear, async () => {
+        stjState.contentBefore = null
+        stjState.contentAfter = null
+        stjState.contentUnchanged = null
+        updateSets()
+        updateChangeSearch();
+    });
+
+
+    async function save() { // in popup
+        // Could give:
+        // "DOMException: Failed to execute 'setItem' on 'Storage': Setting the value of 'stjState' exceeded the quota."
+        stjState.searchTextValue = searchText.value;
+        stjState.selectedTab = document.querySelector('[aria-selected="true"]').id
+
+        // localStorage.setItem('stjState', JSON.stringify(stjState));
+
+        // IndexedDB is a strange thing.
+        indexedDbStorage.setItem("stjState", stjState)
+
+        // Async is a bit harder to work with, this API is less standard and needs "storage" permission:
+        // chrome.storage.sync.set("searchTextValue", searchText.value);
+    }
+
+    document.getElementById(stjState.selectedTab).click()
+    searchText.value = stjState.searchTextValue
+    searchText.focus();
+    searchText.select();
+    searchText.addEventListener("keypress", function (event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            searchButton.click();
+        }
+    });
+
+});
+init().catch((e) => {
+    console.error(e);
+    window.alert(e);
+})

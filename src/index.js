@@ -488,11 +488,21 @@ ${ret.codeAfter}
 }
 
 function slog(src, opts = null) {
+  if (src == null) {
+    src = window
+  }
   opts = {
     ignoreFunction: true,
     ...opts,
   }
+  const iframe = document.createElement('iframe');
+  iframe.style.display = 'none';
+  document.body.appendChild(iframe);
+  window.console = iframe.contentWindow.console;
+
   console.log(serialize(src, opts))
+  // with Chrome 60+ only remove the childnode when log is no longer needed
+  iframe.parentNode.removeChild(iframe);
 }
 
 module.exports = {
