@@ -7,12 +7,43 @@ const btnBefore = document.getElementById("btnBefore");
 const btnAfter = document.getElementById("btnAfter");
 const btnUnchanged = document.getElementById("btnUnchanged");
 const resultElementChanged = document.getElementById("resultElementChanged");
+const btnClear = document.getElementById("btnClear");
 
-window.onblur = function () {
-    // IndexedDB is quite bad compared to localStorage.
-    localStorage.setItem('searchTextValue', searchText.value);
+let stjState = {
+    contentBefore: null,
+    contentAfter: null,
+    contentUnchanged: null,
 }
-searchText.value = localStorage.getItem('searchTextValue');
+
+const tmp = JSON.parse(localStorage.getItem('stjState'))
+if (tmp) {
+    // For debugging: localStorage.removeItem('stjState')
+    stjState = tmp
+} else {
+    // Keep the folowing blob in sync with the content of onblur
+    stjState.searchTextValue = searchText.value;
+    stjState.selectedTab = document.querySelector('[aria-selected="true"]').id
+}
+
+function save() { // in popup
+    // IndexedDB is quite bad compared to localStorage. TODO: Maybe unlimited storage??
+
+    // Could give:
+    // "DOMException: Failed to execute 'setItem' on 'Storage': Setting the value of 'stjState' exceeded the quota."
+    stjState.searchTextValue = searchText.value;
+    stjState.selectedTab = document.querySelector('[aria-selected="true"]').id
+
+    localStorage.setItem('stjState', JSON.stringify(stjState));
+
+    // Async is a bit harder to work with, this API is less standard and needs "storage" permission:
+    // chrome.storage.sync.set("searchTextValue", searchText.value);
+}
+
+// window.onunload = save // in standard chrome
+window.onblur = save
+
+document.getElementById(stjState.selectedTab).click()
+searchText.value = stjState.searchTextValue
 searchText.focus();
 searchText.select();
 searchText.addEventListener("keypress", function (event) {
@@ -71,32 +102,44 @@ asyncButtonClick(searchButton, async () => {
     }
 });
 
-let contentBefore = null
-let contentAfter = null
-let contentUnchanged = null
+let contentBeforeSet = null;
+let contentAfterSet = null;
+let contentUnchangedSet = null;
+if (stjState.contentBefore) {
+    contentBeforeSet = new Set(stjState.contentBefore.split('\n'))
+}
+if (stjState.contentAfter) {
+    contentAfterSet = new Set(stjState.contentAfter.split('\n'))
+}
+if (stjState.contentUnchanged) {
+    contentUnchangedSet = new Set(stjState.contentUnchanged.split('\n'))
+}
 
 function updateChangeSearch() {
     btnBefore.classList.remove("btn-danger")
-    if (!contentBefore) btnBefore.classList.add("btn-danger")
+    if (!stjState.contentBefore) btnBefore.classList.add("btn-danger")
     btnAfter.classList.remove("btn-danger")
-    if (!contentAfter) btnAfter.classList.add("btn-danger")
+    if (!stjState.contentAfter) btnAfter.classList.add("btn-danger")
     btnUnchanged.classList.remove("btn-danger")
-    if (!contentUnchanged) btnUnchanged.classList.add("btn-danger")
+    if (!stjState.contentUnchanged) btnUnchanged.classList.add("btn-danger")
 
-    if (contentBefore == null || contentAfter == null) {
+    if (stjState.contentBefore == null || stjState.contentAfter == null) {
         resultElementChanged.innerText = "Capture before and after to show something";
         return;
     }
     const result = []
-    for (const line of contentBefore) {
+    for (const line of contentAfterSet) {
         // The amount of times a line occurs is not taken into account.
-        if (contentAfter.has(line)) {
-        } else {
-            result.push(line)
+        //         B A U
+        // noise = 5 6 7
+        // signl = 1 2 2
+        if (!contentBeforeSet.has(line)) {
+            if (contentUnchangedSet == null || contentUnchangedSet.has(line)) {
+                result.push(line)
+            }
         }
     }
     if (result.length === 0) {
-
         resultElementChanged.innerText = "Nothing to show";
     } else {
         resultElementChanged.innerHTML = result.map(str => `<tr><th>${str}</th></tr>`).join("\n");
@@ -106,25 +149,34 @@ function updateChangeSearch() {
 updateChangeSearch();
 
 asyncButtonClick(btnBefore, async () => {
-    const tmp = await callStjFunctionWrapped("serialize",
+    stjState.contentBefore = await callStjFunctionWrapped("serialize",
         "magic value that will resort to globalThis object",
-        {fullPaths: true})
-    contentBefore = new Set(tmp.split('\n'))
+        {fullPaths: true, ignoreFunction: true,})
+    contentBeforeSet = new Set(stjState.contentBefore.split('\n'))
     updateChangeSearch()
+    await save()
 });
 asyncButtonClick(btnAfter, async () => {
-    const tmp = await callStjFunctionWrapped("serialize",
+    stjState.contentAfter = await callStjFunctionWrapped("serialize",
         "magic value that will resort to globalThis object",
-        {fullPaths: true})
-    contentAfter = new Set(tmp.split('\n'))
+        {fullPaths: true, ignoreFunction: true,})
+    contentAfterSet = new Set(stjState.contentAfter.split('\n'))
     updateChangeSearch()
+    await save()
 });
 asyncButtonClick(btnUnchanged, async () => {
-    const tmp = await callStjFunctionWrapped("serialize",
+    stjState.contentUnchanged = await callStjFunctionWrapped("serialize",
         "magic value that will resort to globalThis object",
-        {fullPaths: true})
-    contentUnchanged = new Set(tmp.split('\n'))
+        {fullPaths: true, ignoreFunction: true,})
+    contentUnchangedSet = new Set(stjState.contentUnchanged.split('\n'))
     updateChangeSearch()
+    await save()
+});
+asyncButtonClick(btnClear, async () => {
+    stjState.contentBefore = null
+    stjState.contentAfter = null
+    stjState.contentUnchanged = null
+    updateChangeSearch();
 });
 
 
@@ -619,7 +671,7 @@ function callStjFunction(functionName, arg, opts) {
 
                     // Now reset, and go over the real object
                     objCounter = 0
-                    refs.breadcrumbs = ['root']
+                    refs.breadcrumbs = ['window']
                     absorbPhase = false
 
                     const ret = stringify(src, 2)

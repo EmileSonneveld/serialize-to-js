@@ -3,7 +3,11 @@
   "description": "Search how to get a certain value in JS!",
   "version": "1.0",
   "manifest_version": 3,
-  "permissions": ["storage", "activeTab", "scripting"],
+  "permissions": [
+    "activeTab",
+    "scripting"
+    //"unlimitedStorage" // default is 5MB, but a JS dump can take 100Mb
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {

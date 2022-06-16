@@ -31,14 +31,21 @@
     <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="changed-search-tab">
         <button type="button" href="#" class="btn btn-success" id="btnBefore">Before</button>
         <button type="button" href="#" class="btn btn-success" id="btnAfter">After</button>
-        <button type="button" href="#" class="btn btn-success" id="btnUnchanged" style="display: none">Unchanged</button>
+        <button type="button" href="#" class="btn btn-success" id="btnUnchanged">Unchanged</button>
+        <br/>
+        <br/>
+        <button type="button" href="#" class="btn btn-primary" id="btnClear">Clear</button>
+
         <table id="resultElementChanged" style="width: 100%;"></table>
     </div>
 </div>
 
 
-<script src="popup.js"></script>
+<!-- When making a script 'type="module"', the variables are not accesible globally anymore. -->
+<!-- Also, modules seem to be not loadable under file:// -->
 <script src="bootstrap/js/bootstrap.bundle.js"></script>
+<!--<script src="dbStj.js"></script>-->
+<script src="popup.js" ></script>
 
 </body>
 </html>
