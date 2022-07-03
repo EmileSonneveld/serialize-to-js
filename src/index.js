@@ -32,7 +32,9 @@ class ObjectIsDirectlyLinkableError extends Error {
  * @return {String} serialized representation of `source`
  */
 function serialize(src, opts = null) {
-  if (src === "magic value that will resort to globalThis object") {src = globalThis;}
+  if (src === "magic value that will resort to globalThis object") {
+    src = globalThis;
+  }
   opts = {
     maxDepth: Infinity,
     evaluateSimpleGetters: true,
@@ -41,6 +43,7 @@ function serialize(src, opts = null) {
     alwaysQuote: false,
     fullPaths: false,
     needle: null,
+    objectsToLinkTo: null,
     ...opts,
   }
   if (typeof opts.space === 'number') {
@@ -67,12 +70,12 @@ function serialize(src, opts = null) {
       if (typeof source === "object") {
         throw new ObjectIsDirectlyLinkableError("", refs.join())
       } else {
-        return { codeBefore, codeMain, codeAfter }
+        return {codeBefore, codeMain, codeAfter}
       }
     }
     if (indent > opts.maxDepth) {
       codeMain += "undefined /* >maxDepth */"
-      return { codeBefore, codeMain, codeAfter }
+      return {codeBefore, codeMain, codeAfter}
     }
 
     function appendDirtyProps(source) {
@@ -104,7 +107,7 @@ function serialize(src, opts = null) {
                 || ret.codeBefore.includes(opts.needle)
                 || ret.codeMain.includes(opts.needle)
                 || ret.codeAfter.includes(opts.needle)
-                ){
+              ) {
                 codeBefore += ret.codeBefore
                 codeAfter += `  ${refs.join()} = ${ret.codeMain};\n`
                 codeAfter += ret.codeAfter
@@ -121,7 +124,6 @@ function serialize(src, opts = null) {
       // https://levelup.gitconnected.com/pass-by-value-vs-pass-by-reference-in-javascript-31e79afe850a
       // TODO: Save getters and setters as functions
       //       make it an option to get the value behind getters.
-      //       Determine safty by checking the function content on '=' and "(" and if it starts with "return"
       // TODO: Check if capturing local scope is possible. Maybe isolate a function call, and generate minimal code to reproduce the function call
       // Could make it more user friendly by only using late linking when needed.
       switch (type) {
@@ -441,7 +443,7 @@ function serialize(src, opts = null) {
       // codeMain can have /**/ comments in it already.
       codeMain = `undefined /* ${codeMain.replaceAll('*/', '* /')} ${errorToValue(error)} */`
     }
-    return { codeBefore, codeMain, codeAfter }
+    return {codeBefore, codeMain, codeAfter}
   }
 
   function errorToValue(error) {
@@ -495,14 +497,19 @@ function slog(src, opts = null) {
     ignoreFunction: true,
     ...opts,
   }
-  const iframe = document.createElement('iframe');
-  iframe.style.display = 'none';
-  document.body.appendChild(iframe);
-  window.console = iframe.contentWindow.console;
-
+  let iframe = null;
+  if (globalThis.document) {
+    iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    window.console = iframe.contentWindow.console;
+  }
   console.log(serialize(src, opts))
-  // with Chrome 60+ only remove the childnode when log is no longer needed
-  iframe.parentNode.removeChild(iframe);
+
+  if (iframe) {
+    // with Chrome 60+ only remove the childNode when log is no longer needed
+    iframe.parentNode.removeChild(iframe);
+  }
 }
 
 module.exports = {

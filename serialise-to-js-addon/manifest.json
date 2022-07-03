@@ -1,6 +1,6 @@
 {
-  "name": "JS Search",
-  "description": "Search how to get a certain value in JS!",
+  "name": "JS Picking",
+  "description": "Find the JavaScript variables in the midst of chaos",
   "version": "1.0",
   "manifest_version": 3,
   "permissions": [

@@ -46,7 +46,7 @@ function search(needle, opts = null) {
         }
         let acces = Ref.isSafeKey(key) ? `.${key}` : `[${utils.quote(key, opts)}]`;
         let child = source[key]
-        if(typeof child == "function" && utils.isSimpleGetter(child)){
+        if (typeof child == "function" && utils.isSimpleGetter(child)) {
           visitedRefs.set(child, {parent: source, acces})
           // jump inside the function
           acces = "()";
@@ -98,7 +98,7 @@ function search(needle, opts = null) {
       }
     }
   }
-  if(opts.returnValue) {
+  if (opts.returnValue) {
     return results
   }
 

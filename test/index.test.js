@@ -37,7 +37,7 @@ function test(name, inp, expSubstring, unsafe, objectsToLinkTo, deepStrictEqual 
 
     console.log("------------ test -------------")
     // console.log("objectsToLinkTo", objectsToLinkTo)
-    const str = serialize(inp, { unsafe, objectsToLinkTo })
+    const str = serialize(inp, {unsafe, objectsToLinkTo})
     console.log("str:")
     console.log(str)
     const res = looseJsonParse(str)
@@ -66,7 +66,7 @@ function test(name, inp, expSubstring, unsafe, objectsToLinkTo, deepStrictEqual 
 
 describe('test JavaScript applePropertyNameInGlobal', function () {
   {
-    const apple = { appleKey: "appleValue" }
+    const apple = {appleKey: "appleValue"}
     const fakeGlobal = {}
     fakeGlobal.applePropertyNameInGlobal = apple
 
@@ -75,7 +75,7 @@ describe('test JavaScript applePropertyNameInGlobal', function () {
       apple,
       'fakeGlobal.applePropertyNameInGlobal',
       null,
-      { fakeGlobal },
+      {fakeGlobal},
       false
     )
   }
@@ -121,25 +121,25 @@ describe('safe mode', function () {
   )
   test('string with all unsafe characters', '<>\\\\ \t\n/', '"\\u003C\\u003E\\u005C\\u005C \\t\\n\\u002F"')
   test('empty object', {}, '{}')
-  test('object simple', { a: 1, b: 2 }, '{a: 1, b: 2}')
-  test('object with empty string property', { a: 1, "": 2 }, '2')
-  test('object with backslash', { backslash: '\\' }, '"\\u005C"')
+  test('object simple', {a: 1, b: 2}, '{a: 1, b: 2}')
+  test('object with empty string property', {a: 1, "": 2}, '2')
+  test('object with backslash', {backslash: '\\'}, '"\\u005C"')
   test('object of primitives',
-    { one: true, two: false, 'thr-ee': undefined, four: 1, 5: 3.1415, six: -17, 'se ven': 'string' },
+    {one: true, two: false, 'thr-ee': undefined, four: 1, 5: 3.1415, six: -17, 'se ven': 'string'},
     '{"5": 3.1415, one: true, two: false, "thr-ee": undefined, four: 1, six: -17, "se ven": "string"}'
   )
   test('object with unsafe property name',
-    { "</script><script>alert('xss')//": 0 },
+    {"</script><script>alert('xss')//": 0},
     '"\\u003C\\u002Fscript\\u003E\\u003Cscript\\u003Ealert(\'xss\')\\u002F\\u002F"'
   )
   test('object with backslash-escaped quote in property name',
-    { '\\": 0}; alert(\'xss\')//': 0 },
+    {'\\": 0}; alert(\'xss\')//': 0},
     '"\\u005C\\": 0}; alert(\'xss\')\\u002F\\u002F"'
   )
   test('function', log, log.toString(), null, null, false)
   test('async function', myAsyncFunction, myAsyncFunction.toString(), null, null, false)
-  test('arrow function', { key: (a) => a + 1 }, '(a) => a + 1', null, null, false)
-  test('arrow function 2', { key: a => a + 1 }, 'a => a + 1', null, null, false)
+  test('arrow function', {key: (a) => a + 1}, '(a) => a + 1', null, null, false)
+  test('arrow function 2', {key: a => a + 1}, 'a => a + 1', null, null, false)
   test('date', new Date(24 * 12 * 3600000), 'new Date("1970-01-13T00:00:00.000Z")')
   test('invalid date', new Date('Invalid'), 'new Date("Invalid Date")', null, null, false)
   test('error', new Error('error'), 'new Error("error")')
@@ -206,11 +206,11 @@ describe('safe mode', function () {
       : 'new RegExp("[\\u003C\\u002F script\\u003E\\u003Cscript\\u003Ealert(\'xss\')\\u002F\\u002F]", "i")'
   )
   test('Set',
-    new Set(['a', 1.2, true, ['b', 3], { c: 4 }]),
+    new Set(['a', 1.2, true, ['b', 3], {c: 4}]),
     'new Set(["a", 1.2, true, '
   )
   test('Map',
-    new Map([['a', 'a'], [1.2, 1.2], [true, true], [['b', 3], ['b', 4]], [{ c: 4 }, { c: 5 }]]),
+    new Map([['a', 'a'], [1.2, 1.2], [true, true], [['b', 3], ['b', 4]], [{c: 4}, {c: 5}]]),
     'new Map([["a", "a"], [1.2, 1.2], [true, true]'
   )
 
@@ -225,12 +225,12 @@ describe('unsafe mode', function () {
     true
   )
   test('object with unsafe property name',
-    { "</script><script>alert('xss')//": 0 },
+    {"</script><script>alert('xss')//": 0},
     '"</script><script>alert(\'xss\')//"',
     true
   )
   test('object with backslash-escaped quote in property name',
-    { '\\": 0}; alert(\'xss\')//': 0 },
+    {'\\": 0}; alert(\'xss\')//': 0},
     '{"\\u005C\\": 0}; alert(\'xss\')//": 0}',
     true
   )
@@ -292,7 +292,7 @@ describe('others', function () {
   })
 
   {
-    const smallObj = { key: "value" }
+    const smallObj = {key: "value"}
     const obj = {
       a: smallObj,
       "": smallObj,
@@ -333,7 +333,7 @@ describe('others', function () {
       a: o1,
       b: o1
     }
-    const res = serialize(o, { unsafe: true })
+    const res = serialize(o, {unsafe: true})
     const exp = '{a: {"3": "3", one: true, "thr-ee": undefined, "4 four": "four\\n<test></test>", "five\\"(5)": 5}, b: {"3": "3", one: true, "thr-ee": undefined, "4 four": "four\\n<test></test>", "five\\"(5)": 5}}'
     // assert.strictEqual(res, exp)
     assert.deepStrictEqual(looseJsonParse(res), looseJsonParse(exp))
@@ -349,7 +349,7 @@ describe('others', function () {
   {
     function xss() {
       const str = '</script><script>alert(\'xss\')//'
-      const o = { '\\": 0}; alert(\'xss\')//': 0, str }
+      const o = {'\\": 0}; alert(\'xss\')//': 0, str}
       return o
     }
 
@@ -366,7 +366,7 @@ describe('others', function () {
       [1.2, "val"],
       [true, "val"],
       [['b', 3], "val"],
-      [{ c: 4 }, "val"]
+      [{c: 4}, "val"]
     ])
     test('shall unmarshal Map', map)
   }
@@ -376,11 +376,11 @@ describe('others', function () {
     assert.strictEqual(res.toString(), new Date('Invalid').toString())
   })
 
-  const set = new Set(['a', 1.2, true, ['b', 3], { c: 4 }])
+  const set = new Set(['a', 1.2, true, ['b', 3], {c: 4}])
   test('shall unmarshal Set', set)
 
   {
-    const mapKey = { key: "value" }
+    const mapKey = {key: "value"}
     const map2 = new Map([
       [mapKey, 'val'],
       ["key2", mapKey],
@@ -389,7 +389,7 @@ describe('others', function () {
   }
 
   {
-    const fooBar = { foo: "bar" }
+    const fooBar = {foo: "bar"}
 
     const m = new Map()
     m.set('key1', fooBar)
@@ -405,7 +405,7 @@ describe('others', function () {
   }
 
   {
-    const apple = { appleKey: "appleValue" }
+    const apple = {appleKey: "appleValue"}
     const obj = {
       mApple: apple,
       set: new Set([1, 2, apple, new Set([new Set([5, 6]), 7, 8]), 3, 4])
@@ -414,7 +414,7 @@ describe('others', function () {
   }
 
   {
-    const apple = { appleKey: "appleValue" }
+    const apple = {appleKey: "appleValue"}
     // const orange = { orangeKey: "orangeValue" }
     // const banana = { bananaKey: "bananaValue" }
 
@@ -441,12 +441,12 @@ describe('others', function () {
       randomKey: 'randomValue',
     }
     test(
-        'global console.log copy',
-        obj,
-        'function',
-        null,
-        {console},
-        false,
+      'global console.log copy',
+      obj,
+      'function',
+      null,
+      {console},
+      false,
     )
   }
 
@@ -456,12 +456,12 @@ describe('others', function () {
       randomKey: 'randomValue',
     }
     test(
-        'global console.log ref',
-        obj,
-        'console.log',
-        null,
-        {console, globalThis},
-        false
+      'global console.log ref',
+      obj,
+      'console.log',
+      null,
+      {console, globalThis},
+      false
     )
   }
 
@@ -476,17 +476,17 @@ describe('others', function () {
     }
 
     test(
-        'global ref fakeGlobal',
-        obj,
-        'orangePropertyNameInGlobal',
-        null,
-        {fakeGlobal},
-        false
+      'global ref fakeGlobal',
+      obj,
+      'orangePropertyNameInGlobal',
+      null,
+      {fakeGlobal},
+      false
     )
   }
 
   {
-    const apple = { appleKey: "appleValue" }
+    const apple = {appleKey: "appleValue"}
     const arr = ['a', apple, 'c']
     const obj = {
       apple,
@@ -521,7 +521,7 @@ describe('others', function () {
 
   {
     const map = new Map([['a', true], ['b', true], ['c', true]])
-    map.dirtyProperty = { str: 'hello there' }
+    map.dirtyProperty = {str: 'hello there'}
     Object.defineProperty(map, 'dirtyGetter', {
       enumerable: true,
       get: function () {
@@ -543,7 +543,7 @@ describe('others', function () {
         console.log("Dirty getSet value: " + value)
       },
     })
-    const obj = { map }
+    const obj = {map}
 
     test('dirty map get and set', obj, 'dirtySetter', null, null, false)
   }
@@ -562,7 +562,7 @@ describe('others', function () {
   }
 
   {
-    const reusedObject = { key: 'value' }
+    const reusedObject = {key: 'value'}
     reusedObject.cyclicSelf = reusedObject
     const obj = {
       str: 'hello world!',
@@ -570,7 +570,7 @@ describe('others', function () {
       bool: true,
       nil: null,
       undef: undefined,
-      obj: { foo: 'bar', reusedObject },
+      obj: {foo: 'bar', reusedObject},
       arr: [1, '2', reusedObject],
       regexp: /^test?$/,
       date: new Date(),
@@ -675,18 +675,18 @@ describe("getter and setter", () => {
     }))
 
     assert.strictEqual(utils.isSimpleGetter(function () {
-        if (model.deleted) {
-          vtkErrorMacro('instance deleted - cannot call any method')
-          return false
-        }
+      if (model.deleted) {
+        vtkErrorMacro('instance deleted - cannot call any method')
+        return false
+      }
 
-        for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
-          args[_key2] = arguments[_key2]
-        }
-        // Skipped some content here
+      for (var _len2 = arguments.length, args = new Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
+        args[_key2] = arguments[_key2]
+      }
+      // Skipped some content here
 
-        return true
-      }, 'setClippingRange '), false)
+      return true
+    }, 'setClippingRange '), false)
   })
 })
 
@@ -695,8 +695,8 @@ describe("getter and setter", () => {
 describe("iframe test", () => {
   it("acces child iframe", () => {
 
-    const { createServer } = require("http")
-    const { createReadStream } = require("fs")
+    const {createServer} = require("http")
+    const {createReadStream} = require("fs")
     const path = require('path')
 
     function createFileServer(root = ".", port = 8080) {
@@ -705,7 +705,7 @@ describe("iframe test", () => {
         try {
           createReadStream(path.join(root, request.url)).pipe(response)
         } catch (err) {
-          response.writeHead(500, { 'Content-Type': 'text/plain' })
+          response.writeHead(500, {'Content-Type': 'text/plain'})
           response.write(err)
           response.end()
         }

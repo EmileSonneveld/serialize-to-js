@@ -77,14 +77,14 @@ describe("search test", () => {
     assert.equal(search2("orangeValue")[0], "globalThis.fruitBasket[\"0\"]")
     delete globalThis.fruitBasket
   })
-    // TODO: Map
-    // it("find fruitMap>orange", () => {
-    //     globalThis.fruitMap = new Map([
-    //         ['orangeKey', "orangeValue"],
-    //     ])
-    //     assert.equal(search2("orangeValue"))[0], "globalThis.fruitBasket.get(\"orangeKey\")")
-    //     delete globalThis.fruitMap
-    // })
+  // TODO: Map
+  // it("find fruitMap>orange", () => {
+  //     globalThis.fruitMap = new Map([
+  //         ['orangeKey', "orangeValue"],
+  //     ])
+  //     assert.equal(search2("orangeValue"))[0], "globalThis.fruitBasket.get(\"orangeKey\")")
+  //     delete globalThis.fruitMap
+  // })
   it("find kitchen>basketProperty(fresh)>orangeKey>orange", () => {
     globalThis.kitchen = {}
     Object.defineProperty(globalThis.kitchen, 'basketProperty', {
@@ -125,19 +125,25 @@ describe("search test", () => {
   it("hacked toString", () => {
     globalThis.basket = {}
     // A problem like this was found on httpd://calendar.google.com
-    basket.toString = function(){throw Error("got you!")}
+    basket.toString = function () {
+      throw Error("got you!")
+    }
     assert.equal(search2("!this sentence should not be found!").length, 0)
     delete globalThis.basket
   })
   it("simpleFunction", () => {
-    globalThis.simpleFunction = function (){ return "orangeValue"}
+    globalThis.simpleFunction = function () {
+      return "orangeValue"
+    }
     assert.equal(search2("orangeValue")[0], "globalThis.simpleFunction()")
     delete globalThis.simpleFunction
   })
   it("simpleFunction returning object", () => {
-    globalThis.simpleFunction = function (){ return {
-      orangeKey: "orangeValue"
-    }}
+    globalThis.simpleFunction = function () {
+      return {
+        orangeKey: "orangeValue"
+      }
+    }
     assert.equal(search2("orangeValue")[0], "globalThis.simpleFunction().orangeKey")
     delete globalThis.simpleFunction
   })

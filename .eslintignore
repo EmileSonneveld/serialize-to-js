@@ -1,3 +1,5 @@
 coverage/*
+dist/*
+*.bundle.js
 tmp
 lib
