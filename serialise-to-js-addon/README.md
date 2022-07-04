@@ -11,4 +11,6 @@ Second option works by serialising all that is accessible from withing the windo
 
 ![](screenshot.png)
 
+Demonstration of searching a variable by value: https://www.youtube.com/watch?v=fw7PU9izAvA
+
 Uploaded to chrome store here: https://chrome.google.com/webstore/detail/js-picking/jjljfhnjkinelaaagkkamlaaflhfmlpc/

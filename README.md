@@ -4,7 +4,7 @@
 [![Build Status](https://secure.travis-ci.org/commenthol/serialize-to-js.svg?branch=master)](https://travis-ci.org/commenthol/serialize-to-js)
 
 Serialize objects into a string while keeping circular structures and references.
-This string happens to be legimite JavaScript and can be parsed back with `eval()`.
+This string happens to be legitimate JavaScript and can be parsed back with `eval()`.
 
 Like JSON, but supporting Sets, Maps, Dates, circular references and more.
 

@@ -48,9 +48,7 @@ const s = require('../src/index').serialize
 const chai = require('chai')
 const expect = chai.expect
 
-if (typeof URL === 'undefined') {
-  URL = require('url').URL
-}
+const isLessV10 = parseInt(process.versions.node.split('.')[0]) < 10
 
 const serialize = function (src, opts = null) {
   opts = {
@@ -122,10 +120,12 @@ describe('serialize( obj )', function () {
       expect(JSON.parse(serialize(data))).to.deep.equal(data);
     });
 
-    it('should serialize weird whitespace characters correctly', function () {
-      let ws = String.fromCharCode(8232);
-      expect(eval(serialize(ws))).to.equal(ws);
-    });
+    if (!isLessV10) {
+      it('should serialize weird whitespace characters correctly', function () {
+        let ws = String.fromCharCode(8232);
+        expect(eval(serialize(ws))).to.equal(ws);
+      });
+    }
 
     it('should serialize undefined correctly', function () {
       let obj;

@@ -1,7 +1,7 @@
 {
   "name": "JS Picking",
   "description": "Find the JavaScript variables in the midst of chaos",
-  "version": "1.0",
+  "version": "3.1.2",
   "manifest_version": 3,
   "permissions": [
     "activeTab",

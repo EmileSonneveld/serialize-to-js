@@ -23,6 +23,7 @@ async function myAsyncFunction() {
 }
 
 const isLessV12 = parseInt(process.versions.node.split('.')[0]) < 12
+const isLessV10 = parseInt(process.versions.node.split('.')[0]) < 10
 
 describe.node = isBrowser ? describe.skip : describe
 
@@ -46,6 +47,7 @@ function test(name, inp, expSubstring, unsafe, objectsToLinkTo, deepStrictEqual 
     const str = serialize(inp, {unsafe, objectsToLinkTo})
     console.log("str:")
     console.log(str)
+    if (isLessV10 && str.indexOf("\u2028") !== -1) return
     const res = looseJsonParse(str)
 
     console.log("instance:")
