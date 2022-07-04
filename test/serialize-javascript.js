@@ -488,23 +488,25 @@ describe('serialize( obj )', function () {
     });
   });
 
-  describe('BigInt', function () {
-    it('should serialize BigInt', function () {
-      let b = BigInt(9999);
-      expect(serialize(b)).to.equal('BigInt("9999")');
-      expect(serialize({t: [b]})).to.be.a('string').equal('{"t":[BigInt("9999")]}');
-    });
+  if (typeof BigInt !== 'undefined') {
+    describe('BigInt', function () {
+      it('should serialize BigInt', function () {
+        let b = BigInt(9999);
+        expect(serialize(b)).to.equal('BigInt("9999")');
+        expect(serialize({t: [b]})).to.be.a('string').equal('{"t":[BigInt("9999")]}');
+      });
 
-    it('should deserialize BigInt', function () {
-      let d = eval(serialize(BigInt(9999)));
-      expect(d).to.be.a('BigInt');
-      expect(d.toString()).to.equal('9999');
-    });
+      it('should deserialize BigInt', function () {
+        let d = eval(serialize(BigInt(9999)));
+        expect(d).to.be.a('BigInt');
+        expect(d.toString()).to.equal('9999');
+      });
 
-    it('should throw error for invalid bigint', function () {
-      expect(() => serialize(BigInt('abc'))).to.throw(Error);
+      it('should throw error for invalid bigint', function () {
+        expect(() => serialize(BigInt('abc'))).to.throw(Error);
+      });
     });
-  });
+  }
 
   describe('URL', function () {
     it('should serialize URL', function () {

@@ -27,7 +27,11 @@ const isLessV12 = parseInt(process.versions.node.split('.')[0]) < 12
 describe.node = isBrowser ? describe.skip : describe
 
 function looseJsonParse(obj) {
-  return Function('"use strict"; const fakeGlobal = {}; return (' + obj + ')')()
+  const content = '"use strict"; const fakeGlobal = {}; return (' + obj + ')'
+  if (obj.indexOf('script') !== -1) {
+    console.log(content) // Temporary debug
+  }
+  return Function(content)()
 }
 
 function strip(str) {
@@ -223,34 +227,34 @@ describe('safe mode', function () {
 })
 
 describe('unsafe mode', function () {
-  test('string with unsafe characters',
+  test('string with unsafe characters (unsafe mode)',
     '<script type="application/javascript">\u2028\u2029\nvar a = 0;\nvar b = 1; a > 1;\n</script>',
     '"<script type=\\"application/javascript\\">\u2028\u2029\\nvar a = 0;\\nvar b = 1; a > 1;\\n</script>"',
     true
   )
-  test('object with unsafe property name',
+  test('object with unsafe property name (unsafe mode)',
     {"</script><script>alert('xss')//": 0},
     '"</script><script>alert(\'xss\')//"',
     true
   )
-  test('object with backslash-escaped quote in property name',
+  test('object with backslash-escaped quote in property name (unsafe mode)',
     {'\\": 0}; alert(\'xss\')//': 0},
     '{"\\u005C\\": 0}; alert(\'xss\')//": 0}',
     true
   )
-  test('error with unsafe message',
+  test('error with unsafe message (unsafe mode)',
     new Error("</script><script>alert('xss')"),
     'new Error("</script><script>alert(\'xss\')")',
     true
   )
-  test('regexXss',
+  test('regexXss (unsafe mode)',
     /[</script><script>alert('xss')//]/i,
     isLessV12
       ? 'new RegExp("[<\\u005C/script><script>alert(\'xss\')\\u005C/\\u005C/]", "i")'
       : 'new RegExp("[</script><script>alert(\'xss\')//]", "i")',
     true
   )
-  test('regexXss2',
+  test('regexXss2 (unsafe mode)',
     /[</ script><script>alert('xss')//]/i,
     isLessV12
       ? 'new RegExp("[<\\u005C/ script><script>alert(\'xss\')\\u005C/\\u005C/]", "i")'
