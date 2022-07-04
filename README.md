@@ -82,7 +82,7 @@ This gives the following string as result:
 
 You can parse this results with `eval(str)` to get back a real JS object.
 
-Take a look to [the tests](test/index.test.js.md) for more examples.
+Take a look to [the tests](test/index.test.js) for more examples.
 
 **Parameters**
 

@@ -6,7 +6,7 @@ const Ref = require('./internal/reference')
 const {slog} = require('./index')
 
 /**
- * Figuratly search a needle in the haystack.
+ * Figuratively search a needle in the haystack.
  * Breath first traversal to have the smallest possible paths:
  * https://en.wikipedia.org/wiki/Breadth-first_search#Pseudocode
  * @param {*} needle
@@ -21,7 +21,7 @@ function search(needle, opts = null) {
   const results = [];
 
   const visitedRefs = new Map()
-  visitedRefs.set(opts.root, {parent: null, acces: 'globalThis'})
+  visitedRefs.set(opts.root, {parent: null, access: 'globalThis'})
   const queue = []
   queue.push(opts.root)
 
@@ -45,12 +45,12 @@ function search(needle, opts = null) {
         if (propDesc.get && !(utils.isSimpleGetter(propDesc.get) || (propDesc.get + '').indexOf(' [native code] ') !== -1)) {
           continue
         }
-        let acces = Ref.isSafeKey(key) ? `.${key}` : `[${utils.quote(key, opts)}]`;
+        let access = Ref.isSafeKey(key) ? `.${key}` : `[${utils.quote(key, opts)}]`;
         let child = source[key]
         if (typeof child == "function" && utils.isSimpleGetter(child)) {
-          visitedRefs.set(child, {parent: source, acces})
+          visitedRefs.set(child, {parent: source, access})
           // jump inside the function
-          acces = "()";
+          access = "()";
           source = child;
           child = child();
         }
@@ -72,9 +72,9 @@ function search(needle, opts = null) {
           )
         ) {
           let el = visitedRefs.get(source)
-          let breadcrumbs = acces;
+          let breadcrumbs = access;
           while (true) {
-            breadcrumbs = el.acces + breadcrumbs
+            breadcrumbs = el.access + breadcrumbs
             if (el.parent == null) {
               break;
             }
@@ -93,7 +93,7 @@ function search(needle, opts = null) {
         if (visitedRefs.has(child)) {
           // nothing to do
         } else {
-          visitedRefs.set(child, {parent: source, acces})
+          visitedRefs.set(child, {parent: source, access})
           queue.push(child)
         }
       }

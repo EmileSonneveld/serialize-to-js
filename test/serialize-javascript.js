@@ -48,6 +48,9 @@ const s = require('../src/index').serialize
 const chai = require('chai')
 const expect = chai.expect
 
+if (typeof self !== 'undefined') {
+  URL = require('url').URL
+}
 
 const serialize = function (src, opts = null) {
   opts = {
