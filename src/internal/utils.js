@@ -51,7 +51,7 @@ function isObject(arg) {
  * @returns {boolean}
  */
 function isBuffer(arg) {
-  return globalThis.Buffer && arg instanceof Buffer
+  return typeof Buffer !== 'undefined' && arg instanceof Buffer
 }
 
 function isInvalidDate(arg) {
@@ -198,7 +198,9 @@ if (!String.prototype.replaceAll) {
     return this.replace(new RegExp(escapeRegExp(str), 'g'), newStr);
   };
 }
-// A naive globalThis shim.
+
+
+// A naive globalThis shim. I assume the simple polyfill will be enough here.
 // https://mathiasbynens.be/notes/globalthis
 const getGlobalThis = () => {
   if (typeof globalThis !== 'undefined') return globalThis;
@@ -213,6 +215,7 @@ const getGlobalThis = () => {
 // becomes a global variable (as opposed to a variable in the
 // top-level lexical scope) when running in the global scope.
 var world = getGlobalThis();
+
 
 module.exports = {
   safeString,

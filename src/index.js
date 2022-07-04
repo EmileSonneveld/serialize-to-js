@@ -499,7 +499,7 @@ function slog(src, opts = null) {
     ...opts,
   }
   let iframe = null;
-  if (globalThis.document) {
+  if (typeof document !== 'undefined') {
     iframe = document.createElement('iframe');
     iframe.style.display = 'none';
     document.body.appendChild(iframe);
