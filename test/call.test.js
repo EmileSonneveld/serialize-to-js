@@ -10,13 +10,30 @@ const path = require("path");
 const utils = require("../src/internal/utils");
 const serialize = src.serialize
 
+
+// A naive globalThis shim.
+const getGlobalThis = () => {
+  if (typeof globalThis !== 'undefined') return globalThis;
+  if (typeof self !== 'undefined') return self;
+  if (typeof window !== 'undefined') return window;
+  if (typeof global !== 'undefined') return global;
+  if (typeof this !== 'undefined') return this;
+  throw new Error('Unable to locate global `this`');
+};
+
+// Note: `var` is used instead of `const` to ensure `globalThis`
+// becomes a global variable (as opposed to a variable in the
+// top-level lexical scope) when running in the global scope.
+var world = getGlobalThis();
+
+
 /**
  * This feels a bit bulky to be used as a quick way to log calls.
  */
 function logCall(func, thisArg, argArray) {
   const opts = {
     ignoreFunction: false,
-    objectsToLinkTo: {globalThis},
+    objectsToLinkTo: {world},
   };
 
   console.log(serialize(func, opts) + '(' + Array.from(argArray)
@@ -30,15 +47,15 @@ describe("call test", () => {
       return null
     }
 
-    globalThis.call = call
+    world.call = call
 
     call("str", 42)
 
-    delete globalThis.call
+    delete world.call
   })
 
   it("object values", () => {
-    globalThis.fruitBasket = {
+    world.fruitBasket = {
       orangeKey: "orangeValue"
     }
 
@@ -47,11 +64,11 @@ describe("call test", () => {
       return null
     }
 
-    globalThis.call = call
+    world.call = call
 
-    call(globalThis.fruitBasket)
-    // assert.equal(search2("orangeValue"), "globalThis.fruitBasket.orangeKey")
-    delete globalThis.fruitBasket
-    delete globalThis.call
+    call(world.fruitBasket)
+
+    delete world.fruitBasket
+    delete world.call
   })
 })

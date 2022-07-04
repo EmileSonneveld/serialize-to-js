@@ -15,7 +15,8 @@ const isBrowser = (typeof window !== 'undefined')
 function jsonLog(arg) {
   console.log(JSON.stringify(arg))
 }
-globalThis.jsonLog = jsonLog // to find as reference
+
+const fakeGlobal = {jsonLog} // to find as reference
 
 async function myAsyncFunction() {
   return Promise.resolve("Hello")
@@ -141,7 +142,7 @@ describe('safe mode', function () {
   test('async function', myAsyncFunction, myAsyncFunction.toString(), null, null, false)
   test('arrow function', {key: (a) => a + 1}, '(a) => a + 1', null, null, false)
   test('arrow function 2', {key: a => a + 1}, 'a => a + 1', null, null, false)
-  test('function link', jsonLog, "globalThis.jsonLog", null, {globalThis}, false)
+  test('function link', jsonLog, "fakeGlobal.jsonLog", null, {fakeGlobal}, false)
 
   test('date', new Date(24 * 12 * 3600000), 'new Date("1970-01-13T00:00:00.000Z")')
   test('invalid date', new Date('Invalid'), 'new Date("Invalid Date")', null, null, false)
@@ -463,7 +464,7 @@ describe('others', function () {
       obj,
       'console.log',
       null,
-      {console, globalThis},
+      {console},
       false
     )
   }
