@@ -1,6 +1,7 @@
 'use strict'
 
 const utils = require('./internal/utils')
+const world = utils.world
 const Ref = require('./internal/reference')
 const {slog} = require('./index')
 
@@ -111,4 +112,4 @@ module.exports = {
 }
 
 // store globally:
-globalThis.search = search
+world.search = search

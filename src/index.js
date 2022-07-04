@@ -7,6 +7,7 @@
 'use strict'
 
 const utils = require('./internal/utils')
+const world = utils.world
 const Ref = require('./internal/reference')
 const search = require('./search')
 
@@ -517,5 +518,5 @@ module.exports = {
   slog,
 }
 // store globally:
-globalThis.serialize = serialize
-globalThis.slog = slog
+world.serialize = serialize
+world.slog = slog
