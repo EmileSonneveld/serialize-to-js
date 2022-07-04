@@ -216,7 +216,7 @@ const getGlobalThis = () => {
 // top-level lexical scope) when running in the global scope.
 var world = getGlobalThis();
 
-if (typeof self !== 'undefined') {
+if (typeof URL === 'undefined') {
   world.URL = require('url').URL
 }
 
