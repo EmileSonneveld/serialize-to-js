@@ -67,7 +67,9 @@ function test(name, inp, expSubstring, unsafe, objectsToLinkTo, deepStrictEqual 
     console.log('typeof inp', typeof inp)
     if (deepStrictEqual) {
       // This check fails on functions and Invalid dates
-      assert.deepStrictEqual(res, inp)
+      if (!(isLessV10 && (isNaN(res) && isNaN(inp)))) {
+        assert.deepStrictEqual(res, inp)
+      }
     }
   })
 }
