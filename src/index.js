@@ -67,7 +67,7 @@ function serialize(src, opts = null) {
     const type = utils.toType(source)
 
     if (absorbPhase && source === src) {
-      if (typeof source === "object") {
+      if (typeof source === "object" || typeof source === "function") {
         throw new ObjectIsDirectlyLinkableError("", refs.join())
       } else {
         return {codeBefore, codeMain, codeAfter}

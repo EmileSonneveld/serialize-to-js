@@ -12,9 +12,10 @@ if (typeof assert.deepStrictEqual === 'undefined') {
 
 const isBrowser = (typeof window !== 'undefined')
 
-function log(arg) {
+function jsonLog(arg) {
   console.log(JSON.stringify(arg))
 }
+globalThis.jsonLog = jsonLog // to find as reference
 
 async function myAsyncFunction() {
   return Promise.resolve("Hello")
@@ -136,10 +137,12 @@ describe('safe mode', function () {
     {'\\": 0}; alert(\'xss\')//': 0},
     '"\\u005C\\": 0}; alert(\'xss\')\\u002F\\u002F"'
   )
-  test('function', log, log.toString(), null, null, false)
+  test('function', jsonLog, jsonLog.toString(), null, null, false)
   test('async function', myAsyncFunction, myAsyncFunction.toString(), null, null, false)
   test('arrow function', {key: (a) => a + 1}, '(a) => a + 1', null, null, false)
   test('arrow function 2', {key: a => a + 1}, 'a => a + 1', null, null, false)
+  test('function link', jsonLog, "globalThis.jsonLog", null, {globalThis}, false)
+
   test('date', new Date(24 * 12 * 3600000), 'new Date("1970-01-13T00:00:00.000Z")')
   test('invalid date', new Date('Invalid'), 'new Date("Invalid Date")', null, null, false)
   test('error', new Error('error'), 'new Error("error")')
@@ -692,30 +695,30 @@ describe("getter and setter", () => {
 
 
 // TODO: Should make selenium test to test iframe permissions.
-describe("iframe test", () => {
-  it("acces child iframe", () => {
-
-    const {createServer} = require("http")
-    const {createReadStream} = require("fs")
-    const path = require('path')
-
-    function createFileServer(root = ".", port = 8080) {
-      const server = createServer()
-      server.on("request", (request, response) => {
-        try {
-          createReadStream(path.join(root, request.url)).pipe(response)
-        } catch (err) {
-          response.writeHead(500, {'Content-Type': 'text/plain'})
-          response.write(err)
-          response.end()
-        }
-      })
-      server.listen(port)
-      return server
-    }
-
-    createFileServer(".", 44444)
-    createFileServer(".", 55555)
-  })
-})
+// describe("iframe test", () => {
+//   it("acces child iframe", () => {
+//
+//     const {createServer} = require("http")
+//     const {createReadStream} = require("fs")
+//     const path = require('path')
+//
+//     function createFileServer(root = ".", port = 8080) {
+//       const server = createServer()
+//       server.on("request", (request, response) => {
+//         try {
+//           createReadStream(path.join(root, request.url)).pipe(response)
+//         } catch (err) {
+//           response.writeHead(500, {'Content-Type': 'text/plain'})
+//           response.write(err)
+//           response.end()
+//         }
+//       })
+//       server.listen(port)
+//       return server
+//     }
+//
+//     createFileServer(".", 44444)
+//     createFileServer(".", 55555)
+//   })
+// })
 

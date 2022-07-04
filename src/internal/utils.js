@@ -8,8 +8,9 @@ const UNICODE_CHARS = {
   '\n': '\\n',
   '\r': '\\r',
   '\t': '\\t',
-  '\\': '\\u005C', // needed to pass index.test.js
-  // '\\': '\\\\', // Needed to pass serialise-javascript tests.
+  // eval('"\\u005C"') == eval('"\\\\"')
+  '\\': '\\u005C',
+  // '\\': '\\\\', // Was needed before in serialise-javascript tests.
   '<': '\\u003C',
   '>': '\\u003E',
   '/': '\\u002F',
