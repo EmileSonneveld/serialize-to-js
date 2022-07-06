@@ -1,7 +1,7 @@
 # serialize-to-js
 
 [![NPM version](https://badge.fury.io/js/serialize-to-js.svg)](https://www.npmjs.com/package/serialize-to-js/)
-[![Build Status](https://secure.travis-ci.org/commenthol/serialize-to-js.svg?branch=master)](https://travis-ci.org/commenthol/serialize-to-js)
+[![Build Status](https://app.travis-ci.com/EmileSonneveld/serialize-to-js.svg?branch=master)](https://app.travis-ci.com/EmileSonneveld/serialize-to-js)
 
 Serialize objects into a string while keeping circular structures and references.
 This string happens to be legitimate JavaScript and can be parsed back with `eval()`.

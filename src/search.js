@@ -3,7 +3,6 @@
 const utils = require('./internal/utils')
 const world = utils.world
 const Ref = require('./internal/reference')
-const {slog} = require('./index')
 
 /**
  * Figuratively search a needle in the haystack.

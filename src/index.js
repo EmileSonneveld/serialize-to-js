@@ -345,11 +345,15 @@ function serialize(src, opts = null) {
         case 'Window':
         case 'global':
         case 'console':
+        case 'Math':
         case 'Object': {
           refs.markAsVisited(source)
           if (!opts.fullPaths) {
             const tmp = []
-            for (const key in source) {
+
+            // Nothing is enumerable in Math object, so can't use naive for-in-loop
+            const descs = Object.getOwnPropertyDescriptors(source)
+            for (const key in descs) {
               if (Object.prototype.hasOwnProperty.call(source, key)) {
                 if (Object.getOwnPropertyDescriptor(source, key).get) {
                   tmp.push(`${opts.space.repeat(indent) + Ref.wrapkey(key, opts)}: undefined /* Getters not supported*/`) // They could be statefull. try-catch might be not enough

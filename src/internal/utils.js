@@ -216,6 +216,7 @@ const getGlobalThis = () => {
 // top-level lexical scope) when running in the global scope.
 var world = getGlobalThis();
 
+// Polyfill for node 8. Should be commented for webpack.
 if (typeof URL === 'undefined') {
   world.URL = require('url').URL
 }
