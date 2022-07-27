@@ -9,3 +9,4 @@ dist/
 *.log
 *.tgz
 *.sh
+*.sublime-workspace

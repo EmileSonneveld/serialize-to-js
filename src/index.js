@@ -6,6 +6,7 @@
 
 'use strict'
 
+const customEval = require('./custom-eval')
 const utils = require('./internal/utils')
 const world = utils.world
 const Ref = require('./internal/reference')
