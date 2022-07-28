@@ -38,8 +38,8 @@ function CustomEval(str) {
         throw new Error("Varibable '" + name + "' not found to assign to.");
       globalScope.set(name, value)
     } else if(node.left.type === "MemberExpression"){
-      const obj = node.left
-      const name = node.left.name
+      const obj = visitNode(node.left.object)
+      const name = node.left.property.name
 
       const descs = Object.getOwnPropertyDescriptors(obj)
       if (descs[name] && descs[name].set != null) // Make exception for window.window?
@@ -152,6 +152,7 @@ function CustomEval(str) {
         }
         return arr
       }
+      case "FunctionExpression":
       default:
         throw Error("Not implemented yet: " + node.type)
     }

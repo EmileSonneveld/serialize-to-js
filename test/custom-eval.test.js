@@ -37,12 +37,13 @@ describe("customEval test", () => {
   it("create object", () => {
     assert.equal(CustomEval("var obj = {key: 'value'}; obj").key, 'value')
   })
-  //it("set object property", () => {
-  //  assert.equal(CustomEval("let obj = {key1: {key2: 4}}; obj.key1.key2 = 5; obj").key, 5)
-  //})
-  it("example from readme. No cycles", () => {
+  it("set object property", () => {
+    assert.equal(CustomEval("let obj = {key1: {key2: 4}}; obj.key1.key2 = 5; obj").key1.key2, 5)
+  })
+  it("example from readme", () => {
     const obj = CustomEval(`
-    const reusedObject = { key: 'value' };
+const reusedObject = { key: 'value' }
+reusedObject.cyclicSelf = reusedObject
 const obj = {
   str: 'hello world!',
   num: 3.1415,
@@ -57,8 +58,11 @@ const obj = {
   set: new Set([1, 2, 3]),
   map: new Map([['a', 1], ['b', reusedObject]])
 }
-obj;
+obj
 `);
     assert.equal(obj.str, 'hello world!');
   })
+  //it("define and call function", () => {
+  //  assert.equal(CustomEval("let f = function(){return 5}; f();"), 5)
+  //})
 })
