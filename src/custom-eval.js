@@ -7,7 +7,9 @@ world.acorn = acorn
 // derived from https://blog.bitsrc.io/build-a-js-interpreter-in-javascript-using-acorn-as-a-parser-5487bb53390c
 function CustomEval(str) {
   const globalScope = new Map()
-  const whiteListFunctions = new Set([console.log, console.time, console.timeEnd])
+  // TODO: Use this whitelist:
+  // https://chromium.googlesource.com/v8/v8.git/+/ba5bac8cebe91c585024c67687ced8fe1baed833/src/debug/debug-evaluate.cc#267
+  const whiteListFunctions = new Set([console.log, console.time, console.timeEnd, Array, Date, Uint8Array, Set, Map])
 
   const programNode = acorn.parse(str, {
     ecmaVersion: 2020
@@ -28,21 +30,43 @@ function CustomEval(str) {
   }
 
   function visitAssignmentExpression(node) {
-    console.assert(node.left.type === "Identifier")
-    const name = node.left.name
     const value = visitNode(node.right)
-    if (!globalScope.has(name))
-      throw new Error("Varibable '" + name + "' not found to assign to.");
-    globalScope.set(name, value)
+    if (node.left.type === "Identifier"){
+      const name = node.left.name
+      // TODO: var, const, let
+      if (!globalScope.has(name))
+        throw new Error("Varibable '" + name + "' not found to assign to.");
+      globalScope.set(name, value)
+    } else if(node.left.type === "MemberExpression"){
+      const obj = node.left
+      const name = node.left.name
+
+      const descs = Object.getOwnPropertyDescriptors(obj)
+      if (descs[name] && descs[name].set != null) // Make exception for window.window?
+        throw Error("Setters not implemnted yet")
+      // TODO: don't allow this everywhere
+      obj[name] = value
+    } else {
+        throw Error("left node unexpected type: "+node.left.type)
+    }
     return value
   }
+
+  function visitNewExpression(node) {
+    const callee = visitNode(node.callee)
+    const _arguments = evalArgs(node.arguments)
+    if (whiteListFunctions.has(callee))
+      return new callee(..._arguments)
+    throw Error("TODO: Allow self defined functions")
+  }
+
 
   function visitIdentifier(node) {
     const name = node.name
     if (globalScope.get(name))
       return globalScope.get(name)
     const descs = Object.getOwnPropertyDescriptors(world)
-    if (descs.get == null) // Make exception for window.window?
+    if (descs[name].get == null) // Make exception for window.window?
       return world[name]
     throw new ReferenceError(name + "is not defined")
   }
@@ -80,7 +104,7 @@ function CustomEval(str) {
     const _arguments = evalArgs(node.arguments)
     if (whiteListFunctions.has(callee))
       return callee(..._arguments)
-    throw Error("TODO: Allow self defined functions")
+    throw Error("TODO: Allow more functions: " + callee)
   }
 
   function visitNode(node) {
@@ -101,13 +125,33 @@ function CustomEval(str) {
       case "ExpressionStatement":
         return visitNode(node.expression)
       case "MemberExpression":
+      {
         const obj = visitNode(node.object)
         const descs = Object.getOwnPropertyDescriptors(obj)
         if (descs.get == null) // 
           return obj[node.property.name]
         throw Error("TODO: also interpret getters")
+      }
       case "AssignmentExpression":
         return visitAssignmentExpression(node)
+      case "NewExpression":
+        return visitNewExpression(node)
+      case "ObjectExpression":
+      {
+        const obj = {}
+        for (const propertyNode of node.properties) {
+          obj[propertyNode.key.name] = visitNode(propertyNode.value)
+        }
+        return obj
+      }
+      case "ArrayExpression":
+      {
+        const arr = []
+        for (const elementNode of node.elements) {
+          arr.push(visitNode(elementNode))
+        }
+        return arr
+      }
       default:
         throw Error("Not implemented yet: " + node.type)
     }
