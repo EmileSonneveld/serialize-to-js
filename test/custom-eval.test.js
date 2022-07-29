@@ -66,7 +66,23 @@ obj
 `);
     assert.equal(obj.str, 'hello world!');
   })
-  it("define and call function", () => {
-    assert.equal(CustomEval("let f = function(){return 5}; f();"), 5)
+  it("Do not allow to modify objects outside of the interpreter", () => {
+    expect(() => CustomEval("console.log = 5")).to.throw();
+    expect(() => CustomEval("console = 5")).to.throw();
   })
+  it("Ref to global variable within interpreter", () => {
+    assert.equal(CustomEval("const obj = {}; obj.ref = console; obj.ref.log"), console.log);
+    expect(() => CustomEval("const obj = {}; obj.ref = console; obj.ref.log = 5")).to.throw();
+  })
+  it("blend pure and non-pure", () => {
+    assert.equal(CustomEval("const arr = new Array({}, console); arr").length, 2);
+    expect(() => CustomEval("const arr = new Array({}, console); arr[1].log = 5")).to.throw();
+    assert.equal(CustomEval("const arr = new Array({}, console); arr[0].val = 5; arr")[0].val, 5);
+  })
+  it("Not on the white list", () => {
+    expect(() => CustomEval("new XMLHttpRequest()")).to.throw();
+  })
+  //it("define and call function", () => {
+  //  assert.equal(CustomEval("let f = function(){return 5}; f();"), 5)
+  //})
 })
