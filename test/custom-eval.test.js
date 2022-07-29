@@ -37,6 +37,10 @@ describe("customEval test", () => {
   it("create object", () => {
     assert.equal(CustomEval("var obj = {key: 'value'}; obj").key, 'value')
   })
+  it("ignore comments", () => {
+    // Comments are not even returned by acorn. How it should be.
+    assert.equal(CustomEval("/*comment*/ 5 // more comment"), 5)
+  })
   it("set object property", () => {
     assert.equal(CustomEval("let obj = {key1: {key2: 4}}; obj.key1.key2 = 5; obj").key1.key2, 5)
   })
@@ -62,7 +66,7 @@ obj
 `);
     assert.equal(obj.str, 'hello world!');
   })
-  //it("define and call function", () => {
-  //  assert.equal(CustomEval("let f = function(){return 5}; f();"), 5)
-  //})
+  it("define and call function", () => {
+    assert.equal(CustomEval("let f = function(){return 5}; f();"), 5)
+  })
 })

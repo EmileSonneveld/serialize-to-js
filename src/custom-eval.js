@@ -6,7 +6,35 @@ world.acorn = acorn
 
 // derived from https://blog.bitsrc.io/build-a-js-interpreter-in-javascript-using-acorn-as-a-parser-5487bb53390c
 function CustomEval(str) {
-  const globalScope = new Map()
+  const scopeChain = []
+  function addScopeFrame(){
+    const scopeFrame = new Map() // Map, because variable value could be undefined
+    scopeChain.push(scopeFrame)
+  }
+  addScopeFrame();
+  function getVariable(name) {
+    for(let i = scopeChain.length -1; i>=0; i--){
+        if(scopeChain[i].has(name)){
+            return scopeChain[i].get(name)
+        }
+    }
+
+    const descs = Object.getOwnPropertyDescriptors(world)
+    if (descs[name].get == null) // Make exception for window.window?
+      return {purelyInterpreted: false, value: world[name]}
+    throw new ReferenceError(name + "is not defined")
+  }
+  function changeVariable(name, value){
+      // TODO: var, const, let
+    for(let i = scopeChain.length -1; i>=0; i--){
+        if(scopeChain[i].has(name)){
+            return scopeChain[i].set(name, value)
+        }
+    }
+    throw new Error("Varibable '" + name + "' not found to assign to.");
+  }
+  
+
   // TODO: Use this whitelist:
   // https://chromium.googlesource.com/v8/v8.git/+/ba5bac8cebe91c585024c67687ced8fe1baed833/src/debug/debug-evaluate.cc#267
   const whiteListFunctions = new Set([console.log, console.time, console.timeEnd, Array, Date, Uint8Array, Set, Map])
@@ -25,7 +53,7 @@ function CustomEval(str) {
     // TODO: var, const, let
     const name = node.id.name
     const value = visitNode(node.init)
-    globalScope.set(name, value)
+    scopeChain[scopeChain.length-1].set(name, value)
     return value
   }
 
@@ -33,46 +61,31 @@ function CustomEval(str) {
     const value = visitNode(node.right)
     if (node.left.type === "Identifier"){
       const name = node.left.name
-      // TODO: var, const, let
-      if (!globalScope.has(name))
-        throw new Error("Varibable '" + name + "' not found to assign to.");
-      globalScope.set(name, value)
-    } else if(node.left.type === "MemberExpression"){
+      changeVariable(name, value)
+    } else if (node.left.type === "MemberExpression"){
       const obj = visitNode(node.left.object)
       const name = node.left.property.name
 
-      const descs = Object.getOwnPropertyDescriptors(obj)
+      const descs = Object.getOwnPropertyDescriptors(obj.value)
       if (descs[name] && descs[name].set != null) // Make exception for window.window?
         throw Error("Setters not implemnted yet")
-      // TODO: don't allow this everywhere
-      obj[name] = value
+      if(!obj.purelyInterpreted)
+        throw Error("Can't assign to objects outside the interpreter environement.")
+      obj.value[name] = value
     } else {
         throw Error("left node unexpected type: "+node.left.type)
     }
     return value
   }
 
-  function visitNewExpression(node) {
-    const callee = visitNode(node.callee)
-    const _arguments = evalArgs(node.arguments)
-    if (whiteListFunctions.has(callee))
-      return new callee(..._arguments)
-    throw Error("TODO: Allow self defined functions")
-  }
-
 
   function visitIdentifier(node) {
     const name = node.name
-    if (globalScope.get(name))
-      return globalScope.get(name)
-    const descs = Object.getOwnPropertyDescriptors(world)
-    if (descs[name].get == null) // Make exception for window.window?
-      return world[name]
-    throw new ReferenceError(name + "is not defined")
+    return getVariable(name) 
   }
 
   function visitLiteral(node) {
-    return node.value
+    return {purelyInterpreted: true, value: node.value}
   }
 
   function visitBinaryExpression(node) {
@@ -81,13 +94,13 @@ function CustomEval(str) {
     const rightNode = visitNode(node.right)
     switch (operator) {
       case "+":
-        return leftNode + rightNode
+        return {purelyInterpreted: true, value: leftNode.value + rightNode.value}
       case "-":
-        return leftNode - rightNode
+        return {purelyInterpreted: true, value: leftNode.value - rightNode.value}
       case "/":
-        return leftNode / rightNode
+        return {purelyInterpreted: true, value: leftNode.value / rightNode.value}
       case "*":
-        return leftNode * rightNode
+        return {purelyInterpreted: true, value: leftNode.value * rightNode.value}
     }
   }
 
@@ -102,9 +115,20 @@ function CustomEval(str) {
   function visitCallExpression(node) {
     const callee = visitNode(node.callee)
     const _arguments = evalArgs(node.arguments)
-    if (whiteListFunctions.has(callee))
-      return callee(..._arguments)
+    const purelyInterpreted = _arguments.findIndex(x=>!x.purelyInterpreted) == -1 && callee.purelyInterpreted
+    if (whiteListFunctions.has(callee.value))
+      return {purelyInterpreted, value: callee.value.apply(null, _arguments.map(x=>x.value))}
+
     throw Error("TODO: Allow more functions: " + callee)
+  }
+
+  function visitNewExpression(node) {
+    const callee = visitNode(node.callee)
+    const _arguments = evalArgs(node.arguments)
+    const purelyInterpreted = _arguments.findIndex(x=>!x.purelyInterpreted) == -1 && callee.purelyInterpreted
+    if (whiteListFunctions.has(callee.value))
+      return {purelyInterpreted, value: new callee.value(..._arguments.map(x=>x.value))}
+    throw Error("TODO: Allow self defined functions")
   }
 
   function visitNode(node) {
@@ -127,9 +151,10 @@ function CustomEval(str) {
       case "MemberExpression":
       {
         const obj = visitNode(node.object)
-        const descs = Object.getOwnPropertyDescriptors(obj)
+        const descs = Object.getOwnPropertyDescriptors(obj.value)
         if (descs.get == null) // 
-          return obj[node.property.name]
+            // TODO: refine purelyInterpreted here
+          return {purelyInterpreted: true, value: obj.value[node.property.name]}
         throw Error("TODO: also interpret getters")
       }
       case "AssignmentExpression":
@@ -142,7 +167,7 @@ function CustomEval(str) {
         for (const propertyNode of node.properties) {
           obj[propertyNode.key.name] = visitNode(propertyNode.value)
         }
-        return obj
+        return {purelyInterpreted: true, value: obj}
       }
       case "ArrayExpression":
       {
@@ -150,9 +175,10 @@ function CustomEval(str) {
         for (const elementNode of node.elements) {
           arr.push(visitNode(elementNode))
         }
-        return arr
+        return {purelyInterpreted: true, value: arr}
       }
       case "FunctionExpression":
+        console.log(node)
       default:
         throw Error("Not implemented yet: " + node.type)
     }
@@ -167,7 +193,8 @@ function CustomEval(str) {
   for (const node of programNode.body) {
     lastResult = visitNode(node)
   }
-  return lastResult
+  if (lastResult)
+    return lastResult.value
 }
 world.CustomEval = CustomEval
 
