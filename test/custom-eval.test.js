@@ -82,7 +82,33 @@ obj
   it("Not on the white list", () => {
     expect(() => CustomEval("new XMLHttpRequest()")).to.throw();
   })
-  //it("define and call function", () => {
-  //  assert.equal(CustomEval("let f = function(){return 5}; f();"), 5)
-  //})
+  it("define function", () => {
+    // interpreter can not return a function that was constructed from a string.
+    // It can return an already existing function tough.
+    CustomEval("let f = function(){return 5};")
+  })
+  it("define and call function", () => {
+    assert.equal(CustomEval("let f = function(){return 5}; f();"), 5)
+  })
+  it("define and call double return function", () => {
+    assert.equal(CustomEval("let f = function(){return 5; return 7}; f();"), 5)
+  })
+  it("define and call function using var", () => {
+    assert.equal(CustomEval("let a = 5; let f = function(){return a}; f();"), 5)
+  })
+  it("define and call function. Reused variable name", () => {
+    assert.equal(CustomEval("let a = 5; let f = function(){let a = 6; return a}; f();"), 6)
+    assert.equal(CustomEval("let a = 5; let f = function(){let a = 6; return a}; f(); a"), 5)
+    assert.equal(CustomEval("let a = 5; let f = function(){let a = 6; let f = function(){let a = 7; return a}; return f()}; f();"), 7)
+    assert.equal(CustomEval("let a = 5; let f = function(){let a = 6; let f = function(){let a = 7; return a}; return f()}; f(); a"), 5)
+  })
+  it("define and call function using var", () => {
+    assert.equal(CustomEval("let a = 5; let f = function(){return a}; f();"), 5)
+  })
+  it("map", () => {
+    assert.equal(CustomEval("let m = new Map([['a',6], ['b',7]]); m").get('a'), 6)
+  })
+  it("member function", () => {
+    assert.equal(CustomEval("let m = new Map([['a',6], ['b',7]]); m.get('a')"), 6)
+  })
 })
