@@ -72,7 +72,7 @@
     "webpack-cli": "4.7.0"
   },
   "engines": {
-    "node": ">=4.0.0"
+    "node": ">=7.6.0"
   },
   "maintainers": [
     "commenthol <commenthol@gmail.com>",
