@@ -135,7 +135,7 @@ function isSimpleGetter(func, propName) {
   if (functContent.indexOf('=') !== -1) {
     return false
   }
-  if (functContent.indexOf(' [native code] ') !== -1) {
+  if (functContent.indexOf(' [native code]') !== -1) {
     // This test could be narrowed down
     if (func.name === 'bound fetch'
       || func.name === 'bound ') { // When running search.test.js in Chrome
