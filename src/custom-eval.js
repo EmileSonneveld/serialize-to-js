@@ -1,11 +1,16 @@
-let acorn = require("acorn");
-const utils = require("../src/internal/utils");
+import utils from './internal/utils.js'
+const isBrowser = (typeof window !== 'undefined')
+
+if (!isBrowser) {
+  // hacky import to work in browser and node
+  globalThis["acorn"] = (await import('../node_modules/acorn/dist/acorn.js')).default
+}
 const world = utils.world
 world.acorn = acorn
 
 
 // derived from https://blog.bitsrc.io/build-a-js-interpreter-in-javascript-using-acorn-as-a-parser-5487bb53390c
-function CustomEval(str) {
+export function CustomEval(str) {
   // Attach metadata to objects with Map, because wrapping the objects is way to invasive.
   const purelyInterpreted = new Map()
   function isPurelyInterpreted(value){
@@ -287,7 +292,3 @@ function CustomEval(str) {
   return ret
 }
 world.CustomEval = CustomEval
-
-module.exports = {
-  CustomEval,
-}

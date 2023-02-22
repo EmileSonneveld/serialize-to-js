@@ -1,15 +1,18 @@
 /* eslint no-new-func: off */
 'use strict'
 
-const assert = require('assert')
-const src = require('../src')
-const {search} = require('../src/search')
-const {expect} = require("chai");
-const {createServer} = require("http");
-const {createReadStream} = require("fs");
-const path = require("path");
-const utils = require("../src/internal/utils");
-const serialize = src.serialize
+import {serialize} from '../src/index.js';
+import {search} from '../src/search.js';
+import utils from '../src/internal/utils.js'
+
+const isBrowser = (typeof window !== 'undefined')
+
+if (!isBrowser) {
+  // hacky import to work in browser and node
+  globalThis["chai"] = (await import('../node_modules/chai/chai.js')).default
+}
+const assert = chai.assert
+const expect = chai.expect
 
 function search2(arg) {
   const arr = search(arg, {returnValue: true})

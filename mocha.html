@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Mocha Tests</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="node_modules/mocha/mocha.css" />
+    <script type="module" src="node_modules/chai/chai.js"></script>
+    <script type="module" src="node_modules/acorn/dist/acorn.js"></script>
+  </head>
+  <body>
+    <div id="mocha"></div>
+
+    <script src="node_modules/chai/chai.js"></script>
+    <script src="node_modules/mocha/mocha.js"></script>
+    <script class="mocha-init">
+      mocha.setup('bdd');
+      mocha.checkLeaks();
+    </script>
+    <script type="module" src="test/call.test.js"></script>
+    <script type="module" src="test/custom-eval.test.js"></script>
+    <script type="module" src="test/index.test.js"></script>
+    <script type="module" src="test/search.test.js"></script>
+    <script type="module" src="test/serialize-javascript.js"></script>
+    <script type="module" class="mocha-exec">
+      mocha.run();
+    </script>
+  </body>
+</html>

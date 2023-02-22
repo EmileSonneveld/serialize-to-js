@@ -19,26 +19,26 @@ const UNICODE_CHARS = {
   '\u2029': '\\u2029'
 }
 
-function safeString(str) {
-  return str.replace(UNSAFE_CHARS_REGEXP, (unsafeChar) => {
+function safeString(s) {
+  return s.replace(UNSAFE_CHARS_REGEXP, (unsafeChar) => {
     return UNICODE_CHARS[unsafeChar]
   })
 }
 
-function unsafeString(str) {
-  str = str.replace(CHARS_REGEXP, (unsafeChar) => UNICODE_CHARS[unsafeChar])
-  return str
+function unsafeString(s) {
+  s = s.replace(CHARS_REGEXP, (unsafeChar) => UNICODE_CHARS[unsafeChar])
+  return s
 }
 
-function quote(str, opts) {
+function quote(s, opts) {
   const fn = opts.unsafe ? unsafeString : safeString
-  return str ? `"${fn(str)}"` : '""'
+  return s ? `"${fn(s)}"` : '""'
 }
 
-function saferFunctionString(str, opts) {
+function saferFunctionString(s, opts) {
   return opts.unsafe
-    ? str
-    : str.replace(/(<\/?)([a-z][^>]*?>)/ig, (m, m1, m2) => safeString(m1) + m2)
+    ? s
+    : s.replace(/(<\/?)([a-z][^>]*?>)/ig, (m, m1, m2) => safeString(m1) + m2)
 }
 
 function isObject(arg) {
@@ -137,7 +137,8 @@ function isSimpleGetter(func, propName) {
   }
   if (functContent.indexOf(' [native code] ') !== -1) {
     // This test could be narrowed down
-    if (func.name === 'bound fetch') {
+    if (func.name === 'bound fetch'
+      || func.name === 'bound ') { // When running search.test.js in Chrome
       return false;
     }
     // 'window.test = "value"' adds a getter and setter to 'window'
@@ -187,15 +188,15 @@ function escapeRegExp(string) {
 }
 
 if (!String.prototype.replaceAll) {
-  String.prototype.replaceAll = function (str, newStr) {
+  String.prototype.replaceAll = function (s, newStr) {
 
     // If a regex pattern
-    if (Object.prototype.toString.call(str).toLowerCase() === '[object regexp]') {
-      return this.replace(str, newStr);
+    if (Object.prototype.toString.call(s).toLowerCase() === '[object regexp]') {
+      return this.replace(s, newStr);
     }
 
     // If a string
-    return this.replace(new RegExp(escapeRegExp(str), 'g'), newStr);
+    return this.replace(new RegExp(escapeRegExp(s), 'g'), newStr);
   };
 }
 
@@ -221,7 +222,7 @@ if (typeof URL === 'undefined') {
   world.URL = require('url').URL
 }
 
-module.exports = {
+export default {
   safeString,
   unsafeString,
   quote,

@@ -3,14 +3,20 @@
 
 // npm run test test/custom-eval.test.js
 
-const assert = require('assert')
-const src = require('../src')
-const {search} = require('../src/search')
-const {expect} = require("chai");
-const {createReadStream} = require("fs");
-const path = require("path");
-const {CustomEval} = require("../src/custom-eval");
-const serialize = src.serialize
+import {serialize} from '../src/index.js';
+import {CustomEval} from '../src/custom-eval.js'
+import utils from '../src/internal/utils.js'
+
+const isBrowser = (typeof window !== 'undefined')
+
+if (!isBrowser) {
+  // hacky import to work in browser and node
+  globalThis["chai"] = (await import('../node_modules/chai/chai.js')).default
+  globalThis["acorn"] = (await import('../node_modules/acorn/dist/acorn.js')).default
+}
+const assert = chai.assert
+const expect = chai.expect
+
 
 describe("customEval test", () => {
   it("simple math", () => {

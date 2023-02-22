@@ -5,7 +5,7 @@
 
 'use strict'
 
-const utils = require('./utils')
+import utils from './utils.js'
 
 const safeKeyRegex = /^[a-zA-Z$_][a-zA-Z$_0-9]*$/
 
@@ -91,4 +91,4 @@ Ref.prototype = {
 
 }
 
-module.exports = Ref
+export default Ref

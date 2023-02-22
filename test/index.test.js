@@ -3,16 +3,26 @@
 
 // npm run test test/index.test.js
 
-const assert = require('assert')
-const src = require('../src')
-const {expect} = require("chai");
-const serialize = src.serialize
-
-if (typeof assert.deepStrictEqual === 'undefined') {
-  assert.deepStrictEqual = assert.deepEqual // eslint-disable-line
-}
+import {serialize} from '../src/index.js';
+import utils from '../src/internal/utils.js'
 
 const isBrowser = (typeof window !== 'undefined')
+
+if (!isBrowser) {
+  // hacky import to work in browser and node
+  globalThis["chai"] = (await import('../node_modules/chai/chai.js')).default
+}
+const assert = chai.assert
+const expect = chai.expect
+
+//const {describe} = require('mocha') // Redundant, but nice to have
+
+if(!isBrowser){
+  if (typeof assert.deepStrictEqual === 'undefined') {
+    assert.deepStrictEqual = assert.deepEqual // eslint-disable-line
+  }
+}
+describe.node = isBrowser ? describe.skip : describe
 
 function jsonLog(arg) {
   console.log(JSON.stringify(arg))
@@ -24,10 +34,9 @@ async function myAsyncFunction() {
   return Promise.resolve("Hello")
 }
 
-const isLessV12 = parseInt(process.versions.node.split('.')[0]) < 12
-const isLessV10 = parseInt(process.versions.node.split('.')[0]) < 10
+const isLessV12 = isBrowser ? null : parseInt(process.versions.node.split('.')[0]) < 12
+const isLessV10 = isBrowser ? null : parseInt(process.versions.node.split('.')[0]) < 10
 
-describe.node = isBrowser ? describe.skip : describe
 
 function looseJsonParse(objStr) {
   const content = '"use strict"; const fakeGlobal = {}; return (' + objStr + ')'
@@ -37,20 +46,20 @@ function looseJsonParse(objStr) {
   return Function(content)()
 }
 
-function strip(str) {
-  return str.replace(/[\s;]/g, '');
+function strip(s) {
+  return s.replace(/[\s;]/g, '');
 }
 
-function test(name, inp, expSubstring, unsafe, objectsToLinkTo, deepStrictEqual = true) {
+function test(name, inp, expSubstring, unsafe=null, objectsToLinkTo=null, deepStrictEqual = true) {
   it(name, function () {
 
     console.log("------------ test -------------")
     // console.log("objectsToLinkTo", objectsToLinkTo)
-    const str = serialize(inp, {unsafe, objectsToLinkTo})
-    console.log("str:")
-    console.log(str)
-    if (isLessV10 && str.indexOf("\u2028") !== -1) return
-    const res = looseJsonParse(str)
+    const codeStr = serialize(inp, {unsafe, objectsToLinkTo})
+    console.log("codeStr:")
+    console.log(codeStr)
+    if (isLessV10 && codeStr.indexOf("\u2028") !== -1) return
+    const res = looseJsonParse(codeStr)
 
     console.log("instance:")
     console.log(inp)
@@ -60,7 +69,7 @@ function test(name, inp, expSubstring, unsafe, objectsToLinkTo, deepStrictEqual 
       expSubstring = strip(expSubstring)
       console.log("exp:")
       console.log(expSubstring)
-      const strCopy = strip(str)
+      const strCopy = strip(codeStr)
       console.log("strCopy:")
       console.log(strCopy)
       expect(strCopy).to.contain(expSubstring);
@@ -95,19 +104,19 @@ describe('test JavaScript applePropertyNameInGlobal', function () {
 
 describe('test JavaScript', function () {
   it('test +=', function () {
-    let str = "1"
+    let s = "1"
 
     function add() {
-      str += "Added"
+      s += "Added"
       return "Ret"
     }
 
-    // str += "2" + add() + "3" // This won't add the "Added" part
+    // s += "2" + add() + "3" // This won't add the "Added" part
     const tmp = "2" + add() + "3"
-    str += tmp
-    console.log(str)
+    s += tmp
+    console.log(s)
 
-    assert.ok(str.indexOf("Added") !== -1)
+    assert.ok(s.indexOf("Added") !== -1)
   })
 })
 
@@ -126,7 +135,10 @@ describe('safe mode', function () {
   test('Infinity', Infinity, 'Infinity')
   test('string', "string's\n\"new\"   line", '"string\'s\\n\\"new\\"   line"')
   test('empty string', '', '""')
-  test('nul string', '\0', '"\u0000"')
+  // 3 ways to represent null char in javascript are all the same data: 
+  test('null char 1', '\0', '"\0"')
+  test('null char 2', '\0', '"\u0000"')
+  test('null char 3', '\0', '"\x00"')
   test('string with unsafe characters',
     '<script type="application/javascript">\u2028\u2029\nvar a = 0;\nvar b = 1; a > 1;\n</script>',
     '"\\u003Cscript type=\\"application\\u002Fjavascript\\"\\u003E\\u2028\\u2029\\nvar a = 0;\\nvar b = 1; a \\u003E 1;\\n\\u003C\\u002Fscript\\u003E"'
@@ -213,7 +225,7 @@ describe('safe mode', function () {
       ? 'new RegExp("[\\u003C\\u005C\\u002Fscript\\u003E\\u003Cscript\\u003Ealert(\'xss\')\\u005C\\u002F\\u005C\\u002F]", "i")'
       : 'new RegExp("[\\u003C\\u002Fscript\\u003E\\u003Cscript\\u003Ealert(\'xss\')\\u002F\\u002F]", "i")'
   )
-  return
+
   test('regexXss2',
     /[</ script><script>alert('xss')//]/i,
     isLessV12
@@ -271,8 +283,10 @@ describe('unsafe mode', function () {
 })
 
 describe.node('Buffer', function () {
-  test('buffer', Buffer.from('buffer'), 'Buffer.from("YnVmZmVy", "base64")')
-  test('empty buffer', Buffer.from(''), 'Buffer.from("", "base64")')
+  if(!isBrowser){
+    test('buffer', Buffer.from('buffer'), 'Buffer.from("YnVmZmVy", "base64")')
+    test('empty buffer', Buffer.from(''), 'Buffer.from("", "base64")')
+  }
 })
 
 describe('others', function () {
@@ -363,14 +377,14 @@ describe('others', function () {
 
   {
     function xss() {
-      const str = '</script><script>alert(\'xss\')//'
-      const o = {'\\": 0}; alert(\'xss\')//': 0, str}
+      const s = '</script><script>alert(\'xss\')//'
+      const o = {'\\": 0}; alert(\'xss\')//': 0, s}
       return o
     }
 
     test('serializes function with unsafe chars 2', xss, 'function xss () {\n' +
-      ' const str = \'\\u003C\\u002Fscript>\\u003Cscript>alert(\\\'xss\\\')//\'\n' +
-      ' const o = { \'\\\\": 0}; alert(\\\'xss\\\')//\': 0, str }\n' +
+      ' const s = \'\\u003C\\u002Fscript>\\u003Cscript>alert(\\\'xss\\\')//\'\n' +
+      ' const o = { \'\\\\": 0}; alert(\\\'xss\\\')//\': 0, s }\n' +
       ' return o\n' +
       ' }', null, null, false)
   }
@@ -536,7 +550,7 @@ describe('others', function () {
 
   {
     const map = new Map([['a', true], ['b', true], ['c', true]])
-    map.dirtyProperty = {str: 'hello there'}
+    map.dirtyProperty = {s: 'hello there'}
     Object.defineProperty(map, 'dirtyGetter', {
       enumerable: true,
       get: function () {
@@ -580,7 +594,7 @@ describe('others', function () {
     const reusedObject = {key: 'value'}
     reusedObject.cyclicSelf = reusedObject
     const obj = {
-      str: 'hello world!',
+      s: 'hello world!',
       num: 3.1415,
       bool: true,
       nil: null,
@@ -645,9 +659,9 @@ describe("object test", () => {
       yaris,
     }
 
-    const str = serialize(obj)
-    console.log(str)
-    const res = looseJsonParse(str)
+    const codeStr = serialize(obj)
+    console.log(codeStr)
+    const res = looseJsonParse(codeStr)
     assert.notStrictEqual(res.yaris.age, null)
     const age = res.yaris.age()
     console.log("res.yaris.age(): ", age)
@@ -663,9 +677,9 @@ describe("object test", () => {
       Car,
     }
 
-    const str = serialize(obj)
-    console.log(str)
-    const res = looseJsonParse(str)
+    const codeStr = serialize(obj)
+    console.log(codeStr)
+    const res = looseJsonParse(codeStr)
     assert.notStrictEqual(res.yaris.age, null)
     const age = res.yaris.age()
     console.log("res.yaris.age(): ", age)
@@ -677,8 +691,6 @@ describe("object test", () => {
 })
 
 describe("getter and setter", () => {
-  const utils = require('../src/internal/utils')
-
   it("isSimpleGetter", () => {
     // Not a simple getter anymore, as it calls the concat function
     // assert.ok(utils.isSimpleGetter(function () {

@@ -9,8 +9,8 @@ This string happens to be legitimate JavaScript and can be parsed back with `eva
 Like JSON, but supporting Sets, Maps, Dates, circular references and more.
 
 ```js
-const str = serialize(source, opts={})
-eval(str) // gives back the object!
+const codeStr = serialize(source, opts={})
+eval(codeStr) // gives back the object!
 ```
 
 serializes an object to JavaScript
@@ -22,7 +22,7 @@ const serialize = require('serialize-to-js')
 const reusedObject = { key: 'value' }
 reusedObject.cyclicSelf = reusedObject
 const obj = {
-  str: 'hello world!',
+  s: 'hello world!',
   num: 3.1415,
   bool: true,
   nil: null,
@@ -43,7 +43,7 @@ This gives the following string as result:
 ```js
 (function(){
   const root = {
-    str: "hello world!",
+    s: "hello world!",
     num: 3.1415,
     bool: true,
     nil: null,
@@ -80,7 +80,7 @@ This gives the following string as result:
 })()
 ```
 
-You can parse this results with `eval(str)` to get back a real JS object.
+You can parse this results with `eval(codeStr)` to get back a real JS object.
 
 Take a look to [the tests](test/index.test.js) for more examples.
 
@@ -122,5 +122,7 @@ See [LICENSE][] for more info.
 
 ```
 npm install
+path=%CD%/node_modules/.bin;%path%
+SET NODE_OPTIONS=--openssl-legacy-provider
 node_modules\.bin\webpack
 ```

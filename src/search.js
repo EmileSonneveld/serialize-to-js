@@ -1,8 +1,7 @@
 'use strict'
 
-const utils = require('./internal/utils')
-const world = utils.world
-const Ref = require('./internal/reference')
+import utils from './internal/utils.js'
+import Ref from './internal/reference.js'
 
 /**
  * Figuratively search a needle in the haystack.
@@ -11,7 +10,7 @@ const Ref = require('./internal/reference')
  * @param {*} needle
  * @param {*} opts
  */
-function search(needle, opts = null) {
+export function search(needle, opts = null) {
   opts = {
     returnValue: false,
     root: globalThis,
@@ -41,7 +40,7 @@ function search(needle, opts = null) {
     for (const key in descs) {
       if (Object.prototype.hasOwnProperty.call(descs, key)) {
         const propDesc = descs[key]
-        if (propDesc.get && !(utils.isSimpleGetter(propDesc.get) || (propDesc.get + '').indexOf(' [native code] ') !== -1)) {
+        if (propDesc.get && !(utils.isSimpleGetter(propDesc.get) || (propDesc.get + '').indexOf(' [native code]') !== -1)) {
           continue
         }
         let access = Ref.isSafeKey(key) ? `.${key}` : `[${utils.quote(key, opts)}]`;
@@ -52,6 +51,9 @@ function search(needle, opts = null) {
           access = "()";
           source = child;
           child = child();
+        }
+        if(child == null) {
+          continue
         }
 
         try {
@@ -65,7 +67,7 @@ function search(needle, opts = null) {
         if (child === needle ||
           (child
             && child.toString // avoid "TypeError: Cannot convert object to primitive value"
-            && (utils.isSimpleGetter(child.toString) || (child.toString + '').indexOf(' [native code] ') !== -1)
+            && (utils.isSimpleGetter(child.toString) || (child.toString + '').indexOf(' [native code]') !== -1)
             && !(child.length === 1) // avoid '(['a'] == 'a')===true' weirdness
             && child == needle // sloppy compare can be handy for '5'==5
           )
@@ -106,9 +108,9 @@ function search(needle, opts = null) {
   console.log(results.join("\n"))
 }
 
-module.exports = {
+export default {
   search,
 }
 
 // store globally:
-world.search = search
+utils.world.search = search

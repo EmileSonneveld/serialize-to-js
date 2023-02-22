@@ -6,11 +6,9 @@
 
 'use strict'
 
-const customEval = require('./custom-eval')
-const utils = require('./internal/utils')
-const world = utils.world
-const Ref = require('./internal/reference')
-const search = require('./search')
+import utils from './internal/utils.js'
+import Ref from './internal/reference.js'
+import {search} from './search.js'
 
 class ObjectIsDirectlyLinkableError extends Error {
   constructor(message, directLink) {
@@ -33,7 +31,7 @@ class ObjectIsDirectlyLinkableError extends Error {
  * @param {*} [opts.space]
  * @return {String} serialized representation of `source`
  */
-function serialize(src, opts = null) {
+export function serialize(src, opts = null) {
   if (src === "magic value that will resort to globalThis object") {
     src = globalThis;
   }
@@ -518,10 +516,10 @@ function slog(src, opts = null) {
   }
 }
 
-module.exports = {
+export default {
   serialize,
   slog,
 }
 // store globally:
-world.serialize = serialize
-world.slog = slog
+utils.world.serialize = serialize
+utils.world.slog = slog
