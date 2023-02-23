@@ -118,6 +118,14 @@ describe('test JavaScript', function () {
 
     assert.ok(s.indexOf("Added") !== -1)
   })
+  it('test null byte in source', function () {
+    // Note that a null byte may be present in source code:
+    assert.equal(eval('"\\x00"'), eval('"\x00"'))
+  })
+  it('test unnecessary quote escape', function () {
+    assert.equal("\"",'\"')
+    assert.equal("\'",'\'')
+  })
 })
 
 describe('safe mode', function () {
@@ -136,9 +144,9 @@ describe('safe mode', function () {
   test('string', "string's\n\"new\"   line", '"string\'s\\n\\"new\\"   line"')
   test('empty string', '', '""')
   // 3 ways to represent null char in javascript are all the same data: 
-  test('null char 1', '\0', '"\0"')
-  test('null char 2', '\0', '"\u0000"')
-  test('null char 3', '\0', '"\x00"')
+  test('null char 1', '\0', '"\\x00"')
+  test('null char 2', '\u0000', '"\\x00"')
+  test('null char 3', '\x00', '"\\x00"')
   test('string with unsafe characters',
     '<script type="application/javascript">\u2028\u2029\nvar a = 0;\nvar b = 1; a > 1;\n</script>',
     '"\\u003Cscript type=\\"application\\u002Fjavascript\\"\\u003E\\u2028\\u2029\\nvar a = 0;\\nvar b = 1; a \\u003E 1;\\n\\u003C\\u002Fscript\\u003E"'

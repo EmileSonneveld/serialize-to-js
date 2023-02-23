@@ -1,7 +1,7 @@
 'use strict'
 
-const UNSAFE_CHARS_REGEXP = /[<>\u2028\u2029/\\\r\n\t"]/g
-const CHARS_REGEXP = /[\\\r\n\t"]/g
+const UNSAFE_CHARS_REGEXP = /[<>\u2028\u2029/\\\r\n\t\x00"]/g
+const CHARS_REGEXP = /[\\\r\n\t\x00"]/g
 
 const UNICODE_CHARS = {
   '"': '\\"',
@@ -15,8 +15,10 @@ const UNICODE_CHARS = {
   '>': '\\u003E',
   '/': '\\u002F',
   //'/': '/',
-  '\u2028': '\\u2028',
-  '\u2029': '\\u2029'
+  '\0': '\\x00', // null byte in source code did not cause problems. But it feels dangerous
+  '\u2028': '\\u2028', // LINE SEPARATOR
+  '\u2029': '\\u2029', // PARAGRAPH SEPARATOR
+  // TODO, Convert all non printable characters in source? What about zero width white space?
 }
 
 function safeString(s) {
