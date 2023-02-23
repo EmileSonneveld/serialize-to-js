@@ -41,7 +41,7 @@ const isLessV10 = isBrowser ? null : parseInt(process.versions.node.split('.')[0
 function looseJsonParse(objStr) {
   const content = '"use strict"; const fakeGlobal = {}; return (' + objStr + ')'
   if(objStr.indexOf("class") == -1 && objStr.indexOf("fakeGlobal") == -1){
-    // TODO: const obj = CustomEval('(function(){'+content+'})();')
+    // TODO: const ob = CustomEval('(function(){'+content+'})();')
   }
   return Function(content)()
 }
@@ -50,7 +50,7 @@ function strip(s) {
   return s.replace(/[\s;]/g, '');
 }
 
-function test(name, inp, expSubstring, unsafe=null, objectsToLinkTo=null, deepStrictEqual = true) {
+function test(name, inp, expSubstring=null, unsafe=null, objectsToLinkTo=null, deepStrictEqual = true) {
   it(name, function () {
 
     console.log("------------ test -------------")
@@ -310,18 +310,18 @@ describe('others', function () {
   }, 'b2')
 
   it('converting an object of objects', function () {
-    const o1 = {
+    const ob1 = {
       one: true,
       'thr-ee': undefined,
       3: '3',
       '4 four': 'four\n<test></test>',
       'five"(5)': 5
     }
-    const o = {
-      a: o1,
-      b: o1
+    const ob = {
+      a: ob1,
+      b: ob1
     }
-    const res = serialize(o)
+    const res = serialize(ob)
     console.log("res", res)
     const exp = '{a: {"3": "3", one: true, "thr-ee": undefined, "4 four": "four\\n\\u003Ctest\\u003E\\u003C\\u002Ftest\\u003E", "five\\"(5)": 5}, b: {"3": "3", one: true, "thr-ee": undefined, "4 four": "four\\n\\u003Ctest\\u003E\\u003C\\u002Ftest\\u003E", "five\\"(5)": 5}}'
     // console.log(JSON.stringify(res))
@@ -329,34 +329,38 @@ describe('others', function () {
   })
 
   {
-    const smallObj = {key: "value"}
-    const obj = {
+    const smallObj = {key: "originalValue"}
+    const ob = {
       a: smallObj,
       "": smallObj,
     }
-    test('converting an object with empty property name', obj)
+    test('converting an object with empty property name', ob)
+    const ob2 = serialize(ob)
+    const ob3 = looseJsonParse(ob2)
+    ob3["a"]["key"] = "Changed!"
+    assert.deepStrictEqual(ob3[""]["key"], ob3["a"]["key"])
   }
 
   const r = {
-    one: true,
+    'one': true,
     'thr-ee': undefined,
     3: '3',
     '4 four': {
-      four: 4
+      'four': 4
     }
   }
-  const o = {
-    a: r,
-    b: r,
-    c: {
-      d: r,
+  const ob = {
+    'a': r,
+    'b': r,
+    'c': {
+      'd': r,
       0: r,
       'spa ce': r
     },
     0: r['4 four'],
     'spa ce': r
   }
-  test('converting an object of objects using references', o)
+  test('converting an object of objects using references', ob)
 
   it('converting an object of objects with opts.unsafe', function () {
     const o1 = {
@@ -366,11 +370,11 @@ describe('others', function () {
       '4 four': 'four\n<test></test>',
       'five"(5)': 5
     }
-    const o = {
+    const ob = {
       a: o1,
       b: o1
     }
-    const res = serialize(o, {unsafe: true})
+    const res = serialize(ob, {unsafe: true})
     const exp = '{a: {"3": "3", one: true, "thr-ee": undefined, "4 four": "four\\n<test></test>", "five\\"(5)": 5}, b: {"3": "3", one: true, "thr-ee": undefined, "4 four": "four\\n<test></test>", "five\\"(5)": 5}}'
     // assert.strictEqual(res, exp)
     assert.deepStrictEqual(looseJsonParse(res), looseJsonParse(exp))
@@ -386,14 +390,14 @@ describe('others', function () {
   {
     function xss() {
       const s = '</script><script>alert(\'xss\')//'
-      const o = {'\\": 0}; alert(\'xss\')//': 0, s}
-      return o
+      const ob = {'\\": 0}; alert(\'xss\')//': 0, s}
+      return ob
     }
 
     test('serializes function with unsafe chars 2', xss, 'function xss () {\n' +
       ' const s = \'\\u003C\\u002Fscript>\\u003Cscript>alert(\\\'xss\\\')//\'\n' +
-      ' const o = { \'\\\\": 0}; alert(\\\'xss\\\')//\': 0, s }\n' +
-      ' return o\n' +
+      ' const ob = { \'\\\\": 0}; alert(\\\'xss\\\')//\': 0, s }\n' +
+      ' return ob\n' +
       ' }', null, null, false)
   }
 
@@ -432,22 +436,22 @@ describe('others', function () {
     m.set('key1', fooBar)
     m.set(NaN, fooBar)
 
-    const obj = {
+    const ob = {
       ref1: fooBar,
       ref2: fooBar,
       ref3: fooBar,
       m: m,
     }
-    test('map and refs 1', obj)
+    test('map and refs 1', ob)
   }
 
   {
     const apple = {appleKey: "appleValue"}
-    const obj = {
+    const ob = {
       mApple: apple,
       set: new Set([1, 2, apple, new Set([new Set([5, 6]), 7, 8]), 3, 4])
     }
-    test('map and refs 2', obj)
+    test('map and refs 2', ob)
   }
 
   {
@@ -464,22 +468,22 @@ describe('others', function () {
     // mOrange.set('orange', orange)
     // mOrange.set(orange, "value")
 
-    const obj = {
+    const ob = {
       mApple: mApple,
       // mOrange: mOrange,
       set: new Set([mApple])
     }
-    test('map and refs 3', obj)
+    test('map and refs 3', ob)
   }
 
   {
-    const obj = {
+    const ob = {
       nativeLogProperty: console.log,
       randomKey: 'randomValue',
     }
     test(
       'global console.log copy',
-      obj,
+      ob,
       'function',
       null,
       {console},
@@ -488,13 +492,13 @@ describe('others', function () {
   }
 
   {
-    const obj = {
+    const ob = {
       nativeLogProperty: console.log,
       randomKey: 'randomValue',
     }
     test(
       'global console.log ref',
-      obj,
+      ob,
       'console.log',
       null,
       {console},
@@ -507,14 +511,14 @@ describe('others', function () {
     const fakeGlobal = {}
     fakeGlobal.orangePropertyNameInGlobal = {orangeKey: "orangeValue"}
 
-    const obj = {
+    const ob = {
       propertyThatLinksToGlobal: fakeGlobal.orangePropertyNameInGlobal,
       apple,
     }
 
     test(
       'global ref fakeGlobal',
-      obj,
+      ob,
       'orangePropertyNameInGlobal',
       null,
       {fakeGlobal},
@@ -525,11 +529,11 @@ describe('others', function () {
   {
     const apple = {appleKey: "appleValue"}
     const arr = ['a', apple, 'c']
-    const obj = {
+    const ob = {
       apple,
       arr
     }
-    test('shared obj array', obj)
+    test('shared ob array', ob)
   }
 
   {
@@ -537,10 +541,10 @@ describe('others', function () {
     const arrB = ['b1', 'b2', arrA]
     // noinspection JSCheckFunctionSignatures
     arrA.push(arrB)
-    const obj = {
+    const ob = {
       arrA,
     }
-    test('cyclic array', obj)
+    test('cyclic array', ob)
   }
 
   {
@@ -580,9 +584,9 @@ describe('others', function () {
         console.log("Dirty getSet value: " + value)
       },
     })
-    const obj = {map}
+    const ob = {map}
 
-    test('dirty map get and set', obj, 'dirtySetter', null, null, false)
+    test('dirty map get and set', ob, 'dirtySetter', null, null, false)
   }
 
   {
@@ -601,13 +605,13 @@ describe('others', function () {
   {
     const reusedObject = {key: 'value'}
     reusedObject.cyclicSelf = reusedObject
-    const obj = {
+    const ob = {
       s: 'hello world!',
       num: 3.1415,
       bool: true,
       nil: null,
       undef: undefined,
-      obj: {foo: 'bar', reusedObject},
+      ob: {foo: 'bar', reusedObject},
       arr: [1, '2', reusedObject],
       regexp: /^test?$/,
       date: new Date(),
@@ -615,12 +619,12 @@ describe('others', function () {
       set: new Set([1, 2, 3]),
       map: new Map([['a', 1], ['b', reusedObject]])
     }
-    test('readme example', obj)
+    test('readme example', ob)
   }
 
 
   {
-    const obj = {
+    const ob = {
       get someGetter() {
         throw Error("should not call this getter")
       },
@@ -628,22 +632,22 @@ describe('others', function () {
         throw Error("should not call this setter. value: " + value)
       }
     }
-    test('getter and setter throws', obj, "someGetter", null, null, false)
+    test('getter and setter throws', ob, "someGetter", null, null, false)
   }
 
   {
-    const obj = {
+    const ob = {
       get statefullGetterA() {
-        obj.counter += 1
-        return "counter increased A " + obj.counter
+        ob.counter += 1
+        return "counter increased A " + ob.counter
       },
       counter: 0,
       get statefullGetterB() {
-        obj.counter += 1
-        return "counter increased B " + obj.counter
+        ob.counter += 1
+        return "counter increased B " + ob.counter
       },
     }
-    test('getter and setter statefull', obj, "counter", null, null, false)
+    test('getter and setter statefull', ob, "counter", null, null, false)
   }
 })
 
@@ -662,12 +666,12 @@ describe("object test", () => {
 
   it("Car 1", () => {
     const yaris = new Car('Yaris', 2019)
-    const obj = {
+    const ob = {
       // Car,
       yaris,
     }
 
-    const codeStr = serialize(obj)
+    const codeStr = serialize(ob)
     console.log(codeStr)
     const res = looseJsonParse(codeStr)
     assert.notStrictEqual(res.yaris.age, null)
@@ -675,17 +679,17 @@ describe("object test", () => {
     console.log("res.yaris.age(): ", age)
     assert.notStrictEqual(age, null)
 
-    test('Car object', obj, "Yaris", null, null, false)
+    test('Car object', ob, "Yaris", null, null, false)
   })
 
   it("Car 2", () => {
     const yaris = new Car('Yaris', 2019)
-    const obj = {
+    const ob = {
       yaris,
       Car,
     }
 
-    const codeStr = serialize(obj)
+    const codeStr = serialize(ob)
     console.log(codeStr)
     const res = looseJsonParse(codeStr)
     assert.notStrictEqual(res.yaris.age, null)
@@ -693,7 +697,7 @@ describe("object test", () => {
     console.log("res.yaris.age(): ", age)
     assert.notStrictEqual(age, null)
 
-    test('Car object', obj, "Yaris", null, null, false)
+    test('Car object', ob, "Yaris", null, null, false)
   })
 
 })
