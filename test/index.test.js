@@ -50,7 +50,7 @@ function strip(s) {
   return s.replace(/[\s;]/g, '');
 }
 
-function test(name, inp, expSubstring=null, unsafe=null, objectsToLinkTo=null, deepStrictEqual = true) {
+function serialise_test(name, inp, expSubstring=null, unsafe=null, objectsToLinkTo=null, deepStrictEqual = true) {
   it(name, function () {
 
     console.log("------------ test -------------")
@@ -91,7 +91,7 @@ describe('test JavaScript applePropertyNameInGlobal', function () {
     const fakeGlobal = {}
     fakeGlobal.applePropertyNameInGlobal = apple
 
-    test(
+    serialise_test(
       'global ref fakeGlobal singleStatement',
       apple,
       'fakeGlobal.applePropertyNameInGlobal',
@@ -129,159 +129,160 @@ describe('test JavaScript', function () {
 })
 
 describe('safe mode', function () {
-  test('undefined', undefined, 'undefined')
-  test('null', null, 'null')
-  test('boolean', true, 'true')
-  test('number', 3.1415, '3.1415')
-  test('zero', 0, '0')
-  test('negative zero', -0, '-0')
-  test('number int', 3, '3')
-  test('number negative int', -13, '-13')
-  test('number float', 0.1, '0.1')
-  test('number negative float', -0.2, '-0.2')
-  test('NaN', NaN, 'NaN')
-  test('Infinity', Infinity, 'Infinity')
-  test('string', "string's\n\"new\"   line", '"string\'s\\n\\"new\\"   line"')
-  test('empty string', '', '""')
-  // 3 ways to represent null char in javascript are all the same data: 
-  test('null char 1', '\0', '"\\x00"')
-  test('null char 2', '\u0000', '"\\x00"')
-  test('null char 3', '\x00', '"\\x00"')
-  test('string with unsafe characters',
+  serialise_test('undefined', undefined, 'undefined')
+  serialise_test('null', null, 'null')
+  serialise_test('boolean', true, 'true')
+  serialise_test('number', 3.1415, '3.1415')
+  serialise_test('zero', 0, '0')
+  serialise_test('negative zero', -0, '-0')
+  serialise_test('number int', 3, '3')
+  serialise_test('number negative int', -13, '-13')
+  serialise_test('number float', 0.1, '0.1')
+  serialise_test('number negative float', -0.2, '-0.2')
+  serialise_test('NaN', NaN, 'NaN')
+  serialise_test('Infinity', Infinity, 'Infinity')
+  serialise_test('simple string', "simple string", '"simple string"')
+  serialise_test('string', "string's\n\"new\"   line", '"string\'s\\n\\"new\\"   line"')
+  serialise_test('empty string', '', '""')
+  // 3 ways to represent null char are all the same data: 
+  serialise_test('null char 1', '\0', '"\\x00"')
+  serialise_test('null char 2', '\u0000', '"\\x00"')
+  serialise_test('null char 3', '\x00', '"\\x00"')
+  serialise_test('string with unsafe characters',
     '<script type="application/javascript">\u2028\u2029\nvar a = 0;\nvar b = 1; a > 1;\n</script>',
     '"\\u003Cscript type=\\"application\\u002Fjavascript\\"\\u003E\\u2028\\u2029\\nvar a = 0;\\nvar b = 1; a \\u003E 1;\\n\\u003C\\u002Fscript\\u003E"'
   )
-  test('string with all unsafe characters', '<>\\\\ \t\n/', '"\\u003C\\u003E\\u005C\\u005C \\t\\n\\u002F"')
-  test('empty object', {}, '{}')
-  test('object simple', {a: 1, b: 2}, '{a: 1, b: 2}')
-  test('object with empty string property', {a: 1, "": 2}, '2')
-  test('object with backslash', {backslash: '\\'}, '"\\u005C"')
-  test('object of primitives',
+  serialise_test('string with all unsafe characters', '<>\\\\ \t\n/', '"\\u003C\\u003E\\u005C\\u005C \\t\\n\\u002F"')
+  serialise_test('empty object', {}, '{}')
+  serialise_test('object simple', {a: 1, b: 2}, '{a: 1, b: 2}')
+  serialise_test('object with empty string property', {a: 1, "": 2}, '2')
+  serialise_test('object with backslash', {backslash: '\\'}, '"\\u005C"')
+  serialise_test('object of primitives',
     {one: true, two: false, 'thr-ee': undefined, four: 1, 5: 3.1415, six: -17, 'se ven': 'string'},
     '{"5": 3.1415, one: true, two: false, "thr-ee": undefined, four: 1, six: -17, "se ven": "string"}'
   )
-  test('object with unsafe property name',
+  serialise_test('object with unsafe property name',
     {"</script><script>alert('xss')//": 0},
     '"\\u003C\\u002Fscript\\u003E\\u003Cscript\\u003Ealert(\'xss\')\\u002F\\u002F"'
   )
-  test('object with backslash-escaped quote in property name',
+  serialise_test('object with backslash-escaped quote in property name',
     {'\\": 0}; alert(\'xss\')//': 0},
     '"\\u005C\\": 0}; alert(\'xss\')\\u002F\\u002F"'
   )
-  test('function', jsonLog, jsonLog.toString(), null, null, false)
-  test('async function', myAsyncFunction, myAsyncFunction.toString(), null, null, false)
-  test('arrow function', {key: (a) => a + 1}, '(a) => a + 1', null, null, false)
-  test('arrow function 2', {key: a => a + 1}, 'a => a + 1', null, null, false)
-  test('function link', jsonLog, "fakeGlobal.jsonLog", null, {fakeGlobal}, false)
+  serialise_test('function', jsonLog, jsonLog.toString(), null, null, false)
+  serialise_test('async function', myAsyncFunction, myAsyncFunction.toString(), null, null, false)
+  serialise_test('arrow function', {key: (a) => a + 1}, '(a) => a + 1', null, null, false)
+  serialise_test('arrow function 2', {key: a => a + 1}, 'a => a + 1', null, null, false)
+  serialise_test('function link', jsonLog, "fakeGlobal.jsonLog", null, {fakeGlobal}, false)
 
-  test('date', new Date(24 * 12 * 3600000), 'new Date("1970-01-13T00:00:00.000Z")')
-  test('invalid date', new Date('Invalid'), 'new Date("Invalid Date")', null, null, false)
-  test('error', new Error('error'), 'new Error("error")')
-  test('error with unsafe message',
+  serialise_test('date', new Date(24 * 12 * 3600000), 'new Date("1970-01-13T00:00:00.000Z")')
+  serialise_test('invalid date', new Date('Invalid'), 'new Date("Invalid Date")', null, null, false)
+  serialise_test('error', new Error('error'), 'new Error("error")')
+  serialise_test('error with unsafe message',
     new Error("</script><script>alert('xss')"),
     'new Error("\\u003C\\u002Fscript\\u003E\\u003Cscript\\u003Ealert(\'xss\')")'
   )
-  test('empty array', [], '[]')
-  test('array',
+  serialise_test('empty array', [], '[]')
+  serialise_test('array',
     [true, false, undefined, 1, 3.1415, -17, 'string'],
     '[true, false, undefined, 1, 3.1415, -17, "string"]'
   )
-  test('Int8Array',
+  serialise_test('Int8Array',
     new Int8Array([1, 2, 3, 4, 5]),
     'new Int8Array([1, 2, 3, 4, 5])'
   )
-  test('Uint8Array',
+  serialise_test('Uint8Array',
     new Uint8Array([1, 2, 3, 4, 5]),
     'new Uint8Array([1, 2, 3, 4, 5])'
   )
-  test('Uint8ClampedArray',
+  serialise_test('Uint8ClampedArray',
     new Uint8ClampedArray([1, 2, 3, 4, 5]),
     'new Uint8ClampedArray([1, 2, 3, 4, 5])'
   )
-  test('Int16Array',
+  serialise_test('Int16Array',
     new Int16Array([-1, 0, 2, 3, 4, 5]),
     'new Int16Array([-1, 0, 2, 3, 4, 5])'
   )
-  test('Uint16Array',
+  serialise_test('Uint16Array',
     new Uint16Array([1, 2, 3, 4, 5]),
     'new Uint16Array([1, 2, 3, 4, 5])'
   )
-  test('Int32Array',
+  serialise_test('Int32Array',
     new Int32Array([1, 2, 3, 4, 5]),
     'new Int32Array([1, 2, 3, 4, 5])'
   )
-  test('Uint32Array',
+  serialise_test('Uint32Array',
     new Uint32Array([1, 2, 3, 4, 5]),
     'new Uint32Array([1, 2, 3, 4, 5])'
   )
-  test('Float32Array',
+  serialise_test('Float32Array',
     new Float32Array([1e10, 2000000, 3.1415, -4.9e2, 5]),
     'new Float32Array([10000000000, 2000000, 3.1414999961853027, -490, 5])'
   )
-  test('Float64Array',
+  serialise_test('Float64Array',
     new Float64Array([1e12, 2000000, 3.1415, -4.9e2, 5]),
     'new Float64Array([1000000000000, 2000000, 3.1415, -490, 5])'
   )
-  test('regex no flags', /abc/, 'new RegExp("abc", "")')
-  test('regex unsafe characters',
+  serialise_test('regex no flags', /abc/, 'new RegExp("abc", "")')
+  serialise_test('regex unsafe characters',
     /<>\/\\\t\n\r\b\0/migsu,
     'new RegExp("\\u003C\\u003E\\u005C\\u002F\\u005C\\u005C\\u005Ct\\u005Cn\\u005Cr\\u005Cb\\u005C0", "gimsu")'
   )
-  test('regexXss',
+  serialise_test('regexXss',
     /[</script><script>alert('xss')//]/i,
     isLessV12
       ? 'new RegExp("[\\u003C\\u005C\\u002Fscript\\u003E\\u003Cscript\\u003Ealert(\'xss\')\\u005C\\u002F\\u005C\\u002F]", "i")'
       : 'new RegExp("[\\u003C\\u002Fscript\\u003E\\u003Cscript\\u003Ealert(\'xss\')\\u002F\\u002F]", "i")'
   )
 
-  test('regexXss2',
+  serialise_test('regexXss2',
     /[</ script><script>alert('xss')//]/i,
     isLessV12
       ? 'new RegExp("[\\u003C\\u005C\\u002F script\\u003E\\u003Cscript\\u003Ealert(\'xss\')\\u005C\\u002F\\u005C\\u002F]", "i")'
       : 'new RegExp("[\\u003C\\u002F script\\u003E\\u003Cscript\\u003Ealert(\'xss\')\\u002F\\u002F]", "i")'
   )
-  test('Set',
+  serialise_test('Set',
     new Set(['a', 1.2, true, ['b', 3], {c: 4}]),
     'new Set(["a", 1.2, true, '
   )
-  test('Map',
+  serialise_test('Map',
     new Map([['a', 'a'], [1.2, 1.2], [true, true], [['b', 3], ['b', 4]], [{c: 4}, {c: 5}]]),
     'new Map([["a", "a"], [1.2, 1.2], [true, true]'
   )
 
   // Is this a real world example for Symbol?
-  test('Symbol', Symbol("hello there"), 'Symbol("hello there")', null, null, false)
+  serialise_test('Symbol', Symbol("hello there"), 'Symbol("hello there")', null, null, false)
 })
 
 describe('unsafe mode', function () {
-  test('string with unsafe characters (unsafe mode)',
+  serialise_test('string with unsafe characters (unsafe mode)',
     '<script type="application/javascript">\u2028\u2029\nvar a = 0;\nvar b = 1; a > 1;\n</script>',
     '"<script type=\\"application/javascript\\">\u2028\u2029\\nvar a = 0;\\nvar b = 1; a > 1;\\n</script>"',
     true
   )
-  test('object with unsafe property name (unsafe mode)',
+  serialise_test('object with unsafe property name (unsafe mode)',
     {"</script><script>alert('xss')//": 0},
     '"</script><script>alert(\'xss\')//"',
     true
   )
-  test('object with backslash-escaped quote in property name (unsafe mode)',
+  serialise_test('object with backslash-escaped quote in property name (unsafe mode)',
     {'\\": 0}; alert(\'xss\')//': 0},
     '{"\\u005C\\": 0}; alert(\'xss\')//": 0}',
     true
   )
-  test('error with unsafe message (unsafe mode)',
+  serialise_test('error with unsafe message (unsafe mode)',
     new Error("</script><script>alert('xss')"),
     'new Error("</script><script>alert(\'xss\')")',
     true
   )
-  test('regexXss (unsafe mode)',
+  serialise_test('regexXss (unsafe mode)',
     /[</script><script>alert('xss')//]/i,
     isLessV12
       ? 'new RegExp("[<\\u005C/script><script>alert(\'xss\')\\u005C/\\u005C/]", "i")'
       : 'new RegExp("[</script><script>alert(\'xss\')//]", "i")',
     true
   )
-  test('regexXss2 (unsafe mode)',
+  serialise_test('regexXss2 (unsafe mode)',
     /[</ script><script>alert('xss')//]/i,
     isLessV12
       ? 'new RegExp("[<\\u005C/ script><script>alert(\'xss\')\\u005C/\\u005C/]", "i")'
@@ -292,20 +293,20 @@ describe('unsafe mode', function () {
 
 describe.node('Buffer', function () {
   if(!isBrowser){
-    test('buffer', Buffer.from('buffer'), 'Buffer.from("YnVmZmVy", "base64")')
-    test('empty buffer', Buffer.from(''), 'Buffer.from("", "base64")')
+    serialise_test('buffer', Buffer.from('buffer'), 'Buffer.from("YnVmZmVy", "base64")')
+    serialise_test('empty buffer', Buffer.from(''), 'Buffer.from("", "base64")')
   }
 })
 
 describe('others', function () {
-  test('simple nested objects', {
-    a: {
-      a1: 0,
-      a2: 0,
+  serialise_test('simple nested objects', {
+    "a": {
+      "a1": 0,
+      "a2": 0,
     },
-    b: {
-      b1: 0,
-      b2: 0,
+    "b": {
+      "b1": 0,
+      "b2": 0,
     }
   }, 'b2')
 
@@ -329,12 +330,12 @@ describe('others', function () {
   })
 
   {
-    const smallObj = {key: "originalValue"}
+    const smallObj = {"key": "originalValue"}
     const ob = {
-      a: smallObj,
+      "a": smallObj,
       "": smallObj,
     }
-    test('converting an object with empty property name', ob)
+    serialise_test('converting an object with empty property name', ob)
     const ob2 = serialize(ob)
     const ob3 = looseJsonParse(ob2)
     ob3["a"]["key"] = "Changed!"
@@ -360,7 +361,7 @@ describe('others', function () {
     0: r['4 four'],
     'spa ce': r
   }
-  test('converting an object of objects using references', ob)
+  serialise_test('converting an object of objects using references', ob)
 
   it('converting an object of objects with opts.unsafe', function () {
     const o1 = {
@@ -394,7 +395,7 @@ describe('others', function () {
       return ob
     }
 
-    test('serializes function with unsafe chars 2', xss, 'function xss () {\n' +
+    serialise_test('serializes function with unsafe chars 2', xss, 'function xss () {\n' +
       ' const s = \'\\u003C\\u002Fscript>\\u003Cscript>alert(\\\'xss\\\')//\'\n' +
       ' const ob = { \'\\\\": 0}; alert(\\\'xss\\\')//\': 0, s }\n' +
       ' return ob\n' +
@@ -409,7 +410,7 @@ describe('others', function () {
       [['b', 3], "val"],
       [{c: 4}, "val"]
     ])
-    test('shall unmarshal Map', map)
+    serialise_test('shall unmarshal Map', map)
   }
 
   it('shall unmarshal to Invalid Date', function () {
@@ -418,7 +419,7 @@ describe('others', function () {
   })
 
   const set = new Set(['a', 1.2, true, ['b', 3], {c: 4}])
-  test('shall unmarshal Set', set)
+  serialise_test('shall unmarshal Set', set)
 
   {
     const mapKey = {key: "value"}
@@ -426,7 +427,7 @@ describe('others', function () {
       [mapKey, 'val'],
       ["key2", mapKey],
     ])
-    test('shall unmarshal Map2', map2)
+    serialise_test('shall unmarshal Map2', map2)
   }
 
   {
@@ -442,7 +443,7 @@ describe('others', function () {
       ref3: fooBar,
       m: m,
     }
-    test('map and refs 1', ob)
+    serialise_test('map and refs 1', ob)
   }
 
   {
@@ -451,7 +452,7 @@ describe('others', function () {
       mApple: apple,
       set: new Set([1, 2, apple, new Set([new Set([5, 6]), 7, 8]), 3, 4])
     }
-    test('map and refs 2', ob)
+    serialise_test('map and refs 2', ob)
   }
 
   {
@@ -473,7 +474,7 @@ describe('others', function () {
       // mOrange: mOrange,
       set: new Set([mApple])
     }
-    test('map and refs 3', ob)
+    serialise_test('map and refs 3', ob)
   }
 
   {
@@ -481,7 +482,7 @@ describe('others', function () {
       nativeLogProperty: console.log,
       randomKey: 'randomValue',
     }
-    test(
+    serialise_test(
       'global console.log copy',
       ob,
       'function',
@@ -496,7 +497,7 @@ describe('others', function () {
       nativeLogProperty: console.log,
       randomKey: 'randomValue',
     }
-    test(
+    serialise_test(
       'global console.log ref',
       ob,
       'console.log',
@@ -516,7 +517,7 @@ describe('others', function () {
       apple,
     }
 
-    test(
+    serialise_test(
       'global ref fakeGlobal',
       ob,
       'orangePropertyNameInGlobal',
@@ -533,7 +534,7 @@ describe('others', function () {
       apple,
       arr
     }
-    test('shared ob array', ob)
+    serialise_test('shared ob array', ob)
   }
 
   {
@@ -544,20 +545,20 @@ describe('others', function () {
     const ob = {
       arrA,
     }
-    test('cyclic array', ob)
+    serialise_test('cyclic array', ob)
   }
 
   {
     const arr = ['a', 'b', 'c']
     arr.dirtyProperty = 'hello there'
-    test('dirty array', arr)
+    serialise_test('dirty array', arr)
   }
 
   {
     const arr = new Map([['a', true], ['b', true], ['c', true]])
     arr.dirtyProperty1 = 0
     arr.dirtyProperty2 = 0
-    test('dirty map', arr)
+    serialise_test('dirty map', arr)
   }
 
   {
@@ -586,20 +587,20 @@ describe('others', function () {
     })
     const ob = {map}
 
-    test('dirty map get and set', ob, 'dirtySetter', null, null, false)
+    serialise_test('dirty map get and set', ob, 'dirtySetter', null, null, false)
   }
 
   {
     const set = new Set(['a', 'b', 'c'])
     set.dirtyProperty = 'hello there'
-    test('dirty set', set)
+    serialise_test('dirty set', set)
   }
 
   {
     const set = new Set(['a', 'b', 'c'])
     set.dirtyProperty = new Set(['d', 'e', 'f'])
     set.dirtyProperty.dirtyProperty = 0
-    test('dirty set nested', set)
+    serialise_test('dirty set nested', set)
   }
 
   {
@@ -619,7 +620,7 @@ describe('others', function () {
       set: new Set([1, 2, 3]),
       map: new Map([['a', 1], ['b', reusedObject]])
     }
-    test('readme example', ob)
+    serialise_test('readme example', ob)
   }
 
 
@@ -632,7 +633,7 @@ describe('others', function () {
         throw Error("should not call this setter. value: " + value)
       }
     }
-    test('getter and setter throws', ob, "someGetter", null, null, false)
+    serialise_test('getter and setter throws', ob, "someGetter", null, null, false)
   }
 
   {
@@ -647,7 +648,7 @@ describe('others', function () {
         return "counter increased B " + ob.counter
       },
     }
-    test('getter and setter statefull', ob, "counter", null, null, false)
+    serialise_test('getter and setter statefull', ob, "counter", null, null, false)
   }
 })
 
@@ -679,7 +680,7 @@ describe("object test", () => {
     console.log("res.yaris.age(): ", age)
     assert.notStrictEqual(age, null)
 
-    test('Car object', ob, "Yaris", null, null, false)
+    serialise_test('Car object', ob, "Yaris", null, null, false)
   })
 
   it("Car 2", () => {
@@ -697,7 +698,7 @@ describe("object test", () => {
     console.log("res.yaris.age(): ", age)
     assert.notStrictEqual(age, null)
 
-    test('Car object', ob, "Yaris", null, null, false)
+    serialise_test('Car object', ob, "Yaris", null, null, false)
   })
 
 })

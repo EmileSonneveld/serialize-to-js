@@ -129,9 +129,10 @@ function isProxy(obj) {
  */
 function isSimpleGetter(func, propName) {
   // Only gets function content when no arguments are required
-  const tmp = (func + '').match(/^function\s*\(\)\s*\{([\s\S]*)\}/)
+  const tmp = (func + '').match(/^function ([\s\S]*)\(\)\s*\{([\s\S]*)\}/)
   if (!tmp || tmp.length < 1) {
     return false
+    // tmp = (func + '').match(/^get\(\)\s*\{([\s\S]*)\}/) TODO: getter
   }
   const functContent = tmp[1]
   if (functContent.indexOf('=') !== -1) {
@@ -140,13 +141,12 @@ function isSimpleGetter(func, propName) {
   if (functContent.indexOf(' [native code]') !== -1) {
     // This test could be narrowed down
     if (func.name === 'bound fetch'
-      || func.name === 'bound ') { // When running search.test.js in Chrome
+        || func.name === 'bound ' // When running search.test.js in Chrome
+        || func.name === 'bound e') { // encountered in frontend webpack code
       return false;
     }
     // 'window.test = "value"' adds a getter and setter to 'window'
-    return true
-    // Before native code was not considered as a simple function.
-    // Not sure what the dangers of that where.
+    return true // TODO: Whitelist native functions
   }
   if (functContent.indexOf('(') !== -1 && (func + '').indexOf(')') !== -1) {
     return false

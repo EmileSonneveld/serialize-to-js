@@ -153,5 +153,10 @@ if (typeof globalThis !== 'undefined') {
       assert.equal(search2("orangeValue")[0], "globalThis.simpleFunction().orangeKey")
       delete globalThis.simpleFunction
     })
+    // it("native function", () => {
+    //   const value = globalThis.process.version
+    //   assert.equal(search2(value)[0], "globalThis.process.version")
+    //   delete globalThis.simpleFunction
+    // })
   })
 }

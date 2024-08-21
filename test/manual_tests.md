@@ -35,4 +35,6 @@ Do the same for https://www.facebook.com/
 https://twitter.com/
 http://localhost:44444/test/iframe_holder.html
 
+Open `mocha.html` in a locally run server. All tests here should pass
+
 And repeat everything in Firefox too

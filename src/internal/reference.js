@@ -53,19 +53,20 @@ Ref.prototype = {
     this.visitedRefs.set(source, this.join())
   },
 
-  unmarkVisited(object) {
-    return this.visitedRefs.delete(object)
+  unmarkVisited(source) {
+    // What does the return value mean?
+    return this.visitedRefs.delete(source)
   },
 
   isVisited(value) {
     return this.visitedRefs.has(value)
   },
 
-  getStatementForObject(object) {
-    if (!this.isVisited(object)) {
+  getStatementForObject(source) {
+    if (!this.isVisited(source)) {
       throw Error("Object should be visited first")
     }
-    return this.visitedRefs.get(object)
+    return this.visitedRefs.get(source)
   },
 
 
