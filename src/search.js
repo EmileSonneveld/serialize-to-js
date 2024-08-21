@@ -38,9 +38,15 @@ export function search(needle, opts = null) {
 
     const descs = Object.getOwnPropertyDescriptors(source) // empty list for number type
     for (const key in descs) {
+      // TODO: Wrap with try-catch
       if (Object.prototype.hasOwnProperty.call(descs, key)) {
         const propDesc = descs[key]
         if (propDesc.get && !(utils.isSimpleGetter(propDesc.get) || (propDesc.get + '').indexOf(' [native code]') !== -1)) {
+          continue
+        }
+        if (utils.isArgumentsObject(source) && key === "callee") {
+          // Avoid error with Google Analytics object:
+          // "TypeError: 'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them"
           continue
         }
         let access = Ref.isSafeKey(key) ? `.${key}` : `[${utils.quote(key, opts)}]`;
@@ -70,7 +76,10 @@ export function search(needle, opts = null) {
             && (utils.isSimpleGetter(child.toString) || (child.toString + '').indexOf(' [native code]') !== -1)
             && !(child.length === 1) // avoid '(['a'] == 'a')===true' weirdness
             && child == needle // sloppy compare can be handy for '5'==5
-          )
+          ) || (
+            typeof child == "string"
+            && child.indexOf(needle) !== -1
+            )
         ) {
           let el = visitedRefs.get(source)
           let breadcrumbs = access;

@@ -140,13 +140,13 @@ function isSimpleGetter(func, propName) {
   }
   if (functContent.indexOf(' [native code]') !== -1) {
     // This test could be narrowed down
-    if (func.name === 'bound fetch'
-        || func.name === 'bound ' // When running search.test.js in Chrome
-        || func.name === 'bound e') { // encountered in frontend webpack code
+    if (func.name.indexOf('bound ') === 0) {
+      // 'bound ' when running search.test.js in Chrome
+      // 'bound e' encountered in frontend webpack code
       return false;
     }
     // 'window.test = "value"' adds a getter and setter to 'window'
-    return false // TODO: Whitelist native functions
+    return true // TODO: Whitelist native functions
   }
   if (functContent.indexOf('(') !== -1 && (func + '').indexOf(')') !== -1) {
     return false
@@ -202,6 +202,10 @@ if (!String.prototype.replaceAll) {
   };
 }
 
+function isArgumentsObject(obj) {
+  return Object.prototype.toString.call(obj) === '[object Arguments]';
+}
+
 
 // A naive globalThis shim. I assume the simple polyfill will be enough here.
 // https://mathiasbynens.be/notes/globalthis
@@ -237,5 +241,6 @@ export default {
   isCloneable,
   isProxy,
   isSimpleGetter,
+  isArgumentsObject,
   world,
 }

@@ -128,6 +128,11 @@ if (typeof globalThis !== 'undefined') {
       assert.equal(search2('123')[0], "globalThis.numbers")
       delete globalThis.numbers
     })
+    it("substring", () => {
+      globalThis.alphabet = "abcde"
+      assert.equal(search2('ab')[0], "globalThis.alphabet")
+      delete globalThis.alphabet
+    })
     it("hacked toString", () => {
       globalThis.basket = {}
       // A problem like this was found on httpd://calendar.google.com
@@ -153,6 +158,17 @@ if (typeof globalThis !== 'undefined') {
       assert.equal(search2("orangeValue")[0], "globalThis.simpleFunction().orangeKey")
       delete globalThis.simpleFunction
     })
+    // it("dirtyFunction returning object", () => { TODO: Support
+    //   globalThis.dirtyFunction = function () {
+    //     return {
+    //       orangeKey: "orangeValue"
+    //     }
+    //   }
+    //   globalThis.dirtyFunction.dirtyProperty = "dirtyValue"
+    //   assert.equal(search2("orangeValue")[0], "globalThis.dirtyFunction().orangeKey")
+    //   assert.equal(search2("dirtyValue")[0], "globalThis.dirtyFunction.dirtyProperty")
+    //   delete globalThis.dirtyFunction
+    // })
     // it("namedFunction returning object", () => { TODO: Support
     //   globalThis.namedFunction = function namedFunction() {
     //     return {
