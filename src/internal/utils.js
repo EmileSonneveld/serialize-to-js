@@ -129,7 +129,7 @@ function isProxy(obj) {
  */
 function isSimpleGetter(func, propName) {
   // Only gets function content when no arguments are required
-  const tmp = (func + '').match(/^function ([\s\S]*)\(\)\s*\{([\s\S]*)\}/)
+  const tmp = (func + '').match(/^function ?\(\)\s*\{([\s\S]*)\}/)
   if (!tmp || tmp.length < 1) {
     return false
     // tmp = (func + '').match(/^get\(\)\s*\{([\s\S]*)\}/) TODO: getter
@@ -146,7 +146,7 @@ function isSimpleGetter(func, propName) {
       return false;
     }
     // 'window.test = "value"' adds a getter and setter to 'window'
-    return true // TODO: Whitelist native functions
+    return false // TODO: Whitelist native functions
   }
   if (functContent.indexOf('(') !== -1 && (func + '').indexOf(')') !== -1) {
     return false

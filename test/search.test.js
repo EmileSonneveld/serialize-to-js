@@ -153,6 +153,33 @@ if (typeof globalThis !== 'undefined') {
       assert.equal(search2("orangeValue")[0], "globalThis.simpleFunction().orangeKey")
       delete globalThis.simpleFunction
     })
+    // it("namedFunction returning object", () => { TODO: Support
+    //   globalThis.namedFunction = function namedFunction() {
+    //     return {
+    //       orangeKey: "orangeValue"
+    //     }
+    //   }
+    //   assert.equal(search2("orangeValue")[0], "globalThis.namedFunction().orangeKey")
+    //   delete globalThis.namedFunction
+    // })
+    it("nestedFunction returning object", () => {
+      const nestedFunction = function () {
+        return {
+          orangeKey: "orangeValue"
+        }
+      }
+      globalThis.outerFunction = function () {
+        return {"nestedFunction": nestedFunction}
+      }
+      assert.equal(search2("orangeValue")[0], "globalThis.outerFunction().nestedFunction().orangeKey")
+      delete globalThis.outerFunction
+    })
+    it("simpleFunction returning no object", () => {
+      // globalThis.simpleFunction = function () {}
+      globalThis.simpleFunction = () =>{}
+      assert.equal(search2("orangeValue").length, 0)
+      delete globalThis.simpleFunction
+    })
     // it("native function", () => {
     //   const value = globalThis.process.version
     //   assert.equal(search2(value)[0], "globalThis.process.version")
