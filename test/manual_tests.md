@@ -2,7 +2,7 @@ manual_tests
 ============
 
 
-Test too hard to automate can be here.
+Test too hard to automate can be documented here.
 
 Open Chrome Open https://en.wikipedia.org/wiki/Main_Page
 Paste the code from `main.js` in the console. Paste the following in the console. Test if the logged code is valid
@@ -33,8 +33,11 @@ Paste the code from `main.js` in the console. Paste the following in the console
 
 Do the same for https://www.facebook.com/
 https://twitter.com/
+https://www.autotorio.com/blueprint
 http://localhost:44444/test/iframe_holder.html
 
 Open `mocha.html` in a locally run server. All tests here should pass
+Example command to launch local server:
+`docker run -p 80:80 -v "%CD%":/usr/local/apache2/htdocs/ httpd`
 
 And repeat everything in Firefox too

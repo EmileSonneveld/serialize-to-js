@@ -243,4 +243,5 @@ export default {
   isSimpleGetter,
   isArgumentsObject,
   world,
+  escapeRegExp,
 }

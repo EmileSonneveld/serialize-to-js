@@ -51,7 +51,18 @@ export function search(needle, opts = null) {
         }
         let access = Ref.isSafeKey(key) ? `.${key}` : `[${utils.quote(key, opts)}]`;
         let child = source[key]
-        if (typeof child == "function" && utils.isSimpleGetter(child)) {
+
+        if (opts.objectsToLinkTo) {
+          // Just skip certain objects.
+          let cont = false
+          for (const key in opts.objectsToLinkTo) {
+            if (child == opts.objectsToLinkTo[key]) cont = true
+          }
+          if (cont) continue
+        }
+        if (typeof child == "function"
+          && utils.isSimpleGetter(child)
+          && (child + '').indexOf(' [native code]') === -1) {
           visitedRefs.set(child, {parent: source, access})
           // jump inside the function
           access = "()";

@@ -123,6 +123,7 @@ See [LICENSE][] for more info.
 ```
 npm install
 path=%CD%/node_modules/.bin;%path%
+:: Avoid ERR_OSSL_EVP_UNSUPPORTED:
 SET NODE_OPTIONS=--openssl-legacy-provider
 node_modules\.bin\webpack
 ```

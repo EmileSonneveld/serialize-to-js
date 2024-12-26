@@ -15,7 +15,12 @@ const assert = chai.assert
 const expect = chai.expect
 
 function search2(arg) {
-  const arr = search(arg, {returnValue: true})
+  const opts = {
+    returnValue: true,
+    objectsToLinkTo: {mocha},
+  }
+
+  const arr = search(arg, opts)
   console.log(arr)
   return arr;
 }
